@@ -1,0 +1,17 @@
+{
+  "builds": [
+    {
+      "src": "def_app_cuipo_logos.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "def_app_cuipo_logos.py"
+    }
+  ]
+}
