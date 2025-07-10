@@ -112,10 +112,10 @@ pagina = st.sidebar.selectbox("Selecciona página:", [
 st.sidebar.markdown(
     f"""
     <style>
-      /* Contenedor absoluto al fondo del sidebar */
+      /* Contenedor absoluto al pie del sidebar */
       .sidebar-logo {{
         position: absolute;
-        bottom: -100px;
+        bottom: 0px;       /* ← ESTA LÍNEA determina la distancia desde el borde inferior */
         left: 0;
         right: 0;
         text-align: center;
