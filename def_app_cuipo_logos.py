@@ -16,22 +16,6 @@ def _get_base64(bin_file):
 logo_top = _get_base64('Recurso 1.png')       # "Potencia Digital"
 logo_bottom = _get_base64('symbol.png')  # Símbolo
 
-st.markdown(
-    f"""
-    <style>
-    .logo-bottom-right {{
-        position: fixed;
-        bottom: 10px;
-        right: 10px;
-        width: 100px;
-        z-index: 1000;
-    }}
-    </style>
-    <img src="data:image/png;base64,{logo_bottom}" class="logo-bottom-right" />
-    """,
-    unsafe_allow_html=True
-)
-
 # ————————————————
 # Funciones comunes
 # ————————————————
