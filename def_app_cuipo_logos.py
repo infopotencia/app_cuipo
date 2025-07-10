@@ -119,7 +119,7 @@ st.sidebar.markdown(
       }}
       .sidebar-logo2 {{
         position: absolute;
-        bottom: -400px;      /* ← ESTA LÍNEA determina la altura del segundo logo */
+        bottom: -500px;      /* ← ESTA LÍNEA determina la altura del segundo logo */
         left: 50%;
         transform: translateX(-50%);
         width: 100px;      /* ajusta al tamaño que quieras */
