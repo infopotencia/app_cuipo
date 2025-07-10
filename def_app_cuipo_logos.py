@@ -19,13 +19,6 @@ logo_bottom = _get_base64('symbol.png')  # Símbolo
 st.markdown(
     f"""
     <style>
-    .logo-top-left {{
-        position: fixed;
-        top: 10px;
-        left: 10px;
-        width: 200px;
-        z-index: 1000;
-    }}
     .logo-bottom-right {{
         position: fixed;
         bottom: 10px;
