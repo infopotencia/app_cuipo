@@ -108,6 +108,30 @@ st.set_page_config(page_title="Análisis Financiero", layout="wide")
 pagina = st.sidebar.selectbox("Selecciona página:", [
     "Programación de Ingresos", "Ejecución de Gastos"
 ])
+# Ahora, coloca el logo al pie del sidebar
+st.sidebar.markdown(
+    f"""
+    <style>
+      /* Contenedor absoluto al fondo del sidebar */
+      .sidebar-logo {{
+        position: absolute;
+        bottom: 10px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        z-index: 1000;
+      }}
+      /* Ajusta el tamaño del logo */
+      .sidebar-logo img {{
+        width: 150px;
+      }}
+    </style>
+    <div class="sidebar-logo">
+      <img src="data:image/png;base64,{logo_top}" alt="Potencia Digital" />
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 if pagina == "Programación de Ingresos":
     st.title("💰 Programación de Ingresos")
