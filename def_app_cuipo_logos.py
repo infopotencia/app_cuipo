@@ -27,7 +27,6 @@ st.markdown(
         z-index: 1000;
     }}
     </style>
-    <img src="data:image/png;base64,{logo_top}" class="logo-top-left" />
     <img src="data:image/png;base64,{logo_bottom}" class="logo-bottom-right" />
     """,
     unsafe_allow_html=True
