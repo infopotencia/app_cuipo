@@ -117,9 +117,20 @@ st.sidebar.markdown(
       .sidebar-logo img {{
         width: 150px;
       }}
+      .sidebar-logo2 {{
+        position: absolute;
+        bottom: -200px;      /* ← ESTA LÍNEA determina la altura del segundo logo */
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100px;      /* ajusta al tamaño que quieras */
+        z-index: 1000;
+      }}
     </style>
     <div class="sidebar-logo">
       <img src="data:image/png;base64,{logo_top}" alt="Potencia Digital" />
+    </div>
+     <div class="sidebar-logo2">
+      <img src="data:image/png;base64,{logo_bottom}" alt="Symbol" />
     </div>
     """,
     unsafe_allow_html=True
