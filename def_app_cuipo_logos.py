@@ -115,7 +115,7 @@ st.sidebar.markdown(
       /* Contenedor absoluto al fondo del sidebar */
       .sidebar-logo {{
         position: absolute;
-        bottom: 50px;
+        bottom: -100px;
         left: 0;
         right: 0;
         text-align: center;
