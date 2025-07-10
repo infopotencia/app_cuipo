@@ -96,6 +96,7 @@ st.sidebar.markdown(
         right: 0;
         text-align: center;
         z-index: 1000;
+        pointer-events: none;
       }}
       /* Ajusta el tamaño del logo */
       .sidebar-logo img {{
