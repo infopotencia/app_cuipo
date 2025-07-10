@@ -199,7 +199,9 @@ if pagina == "Programación de Ingresos":
                 st.subheader("4. Histórico de INGRESOS (Q4)")
                 df_chart = df_sel.reset_index()
                 chart = alt.Chart(df_chart).mark_line(point=True).encode(
-                    x=alt.X('periodo_dt:T', title='Periodo'),
+                     x=alt.X('periodo_dt:T', title='Periodo',
+                            axis=alt.Axis(format='%Y',
+                                          tickCount='year')),
                     y=alt.Y('nom_detalle_sectorial:Q', title='Ingresos Q4', axis=alt.Axis(format='$,.0f')),
                     tooltip=[
                         alt.Tooltip('periodo_dt:T', title='Periodo'),
