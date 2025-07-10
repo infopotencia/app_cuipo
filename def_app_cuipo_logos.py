@@ -107,7 +107,7 @@ st.sidebar.markdown(
       /* Contenedor absoluto al pie del sidebar */
       .sidebar-logo {{
         position: absolute;
-        bottom: -100px;       /* ← ESTA LÍNEA determina la distancia desde el borde inferior */
+        bottom: 30px;       /* ← ESTA LÍNEA determina la distancia desde el borde inferior */
         left: 0;
         right: 0;
         text-align: center;
