@@ -390,7 +390,7 @@ elif pagina == "Ejecución de Gastos":
         # Descargar Consolidado
         consolidado_xl = consolidado.copy()
         consolidado_xl.rename(columns={
-            'nom_vigencia_del_gasto': 'Nom vigencia del gasto',
+            'nom_vigencia_del_gasto': 'Vigencia del gasto',
             'compromisos': 'Compromisos',
             'pagos': 'Pagos',
             'obligaciones': 'Obligaciones'
