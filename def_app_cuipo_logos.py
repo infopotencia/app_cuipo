@@ -237,7 +237,7 @@ elif pagina == "Ejecución de Gastos":
     # Mostrar datos y resumen automáticamente
     if "df_gastos" in st.session_state:
         df_raw = st.session_state["df_gastos"]
-        
+
         st.write("### Datos brutos")
         st.dataframe(
             df_raw.style.format({
@@ -247,7 +247,7 @@ elif pagina == "Ejecución de Gastos":
             }), use_container_width=True
         )
 
-        # Filtrado por lista de códigos
+        # Filtrar por lista de códigos y por VIGENCIA ACTUAL
         cuentas_filtro = [
             "2", "2.1.1", "2.1.2.01.01.001", "2.1.2.01.01.003", "2.1.2.01.01.004",
             "2.1.2.01.01.005", "2.1.2.01.02", "2.1.2.01.03", "2.1.2.02.01",
@@ -274,11 +274,14 @@ elif pagina == "Ejecución de Gastos":
             "2.3.5.02", "2.3.6.01", "2.3.6.02", "2.3.6.03", "2.3.7.01", "2.3.7.05",
             "2.3.7.06", "2.3.8"
         ]
-        df_codes = df_raw[df_raw["cuenta"].isin(cuentas_filtro)]
+        df_filtered = df_raw[
+            df_raw["cuenta"].isin(cuentas_filtro) &
+            (df_raw["nom_vigencia_del_gasto"].str.upper() == "VIGENCIA ACTUAL")
+        ]
 
         # Resumen general sin GASTOS
         resumen = (
-            df_codes
+            df_filtered
             .groupby(["cuenta", "nombre_cuenta"], as_index=False)[["compromisos", "pagos", "obligaciones"]]
             .sum()
         )
@@ -306,7 +309,7 @@ elif pagina == "Ejecución de Gastos":
 
         # Detalle sólo GASTOS
         gastos = (
-            df_codes[df_codes["nombre_cuenta"].str.upper() == "GASTOS"]
+            df_filtered[df_filtered["nombre_cuenta"].str.upper() == "GASTOS"]
             .groupby(["cuenta", "nombre_cuenta"], as_index=False)[["compromisos", "pagos", "obligaciones"]]
             .sum()
         )
@@ -321,4 +324,3 @@ elif pagina == "Ejecución de Gastos":
 
         # Métrica total sin GASTOS
         st.metric("Total compromisos (sin GASTOS)", format_cop(tot["compromisos"]))
-
