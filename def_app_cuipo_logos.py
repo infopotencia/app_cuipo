@@ -157,13 +157,17 @@ if pagina == "Programación de Ingresos":
         df_filtrado = df_i[df_i.get("ambito_codigo", "").isin(codigos_ambito)]
         drop_cols = [c for c in ['cuenta', 'presupuesto_inicial', 'presupuesto_definitivo']
                      if c in df_filtrado.columns]
-        resumen = df_filtrado.drop(columns=drop_cols)
-        resumen = resumen.rename(columns={
+        resumen = df_filtrado.drop(columns=drop_cols).rename(columns={
             'cod_detalle_sectorial': 'Presupuesto Inicial',
             'nom_detalle_sectorial': 'Presupuesto Definitivo'
         })
 
-        st.subheader("2. Resumen de ingresos filtrados")
+        # Dividir valores entre un millón
+        resumen[['Presupuesto Inicial', 'Presupuesto Definitivo']] = (
+            resumen[['Presupuesto Inicial', 'Presupuesto Definitivo']] / 1e6
+        )
+
+        st.subheader("2. Resumen de ingresos filtrados (millones de pesos)")
         styled = resumen.style.format({
             "Presupuesto Inicial": format_cop,
             "Presupuesto Definitivo": format_cop
@@ -175,7 +179,11 @@ if pagina == "Programación de Ingresos":
                 resumen['ambito_nombre'].str.upper() == 'INGRESOS',
                 'Presupuesto Definitivo'
             ].sum()
-            st.subheader("3. Total Presupuesto Definitivo (INGRESOS)")
+
+            # Dividir total entre un millón
+            total_ing = total_ing / 1e6
+
+            st.subheader("3. Total Presupuesto Definitivo (INGRESOS) (millones de pesos)")
             st.metric("", format_cop(total_ing))
 
     if st.button("Mostrar histórico"):
@@ -208,6 +216,10 @@ if pagina == "Programación de Ingresos":
                 df_sel['nom_detalle_sectorial'] = pd.to_numeric(
                     df_sel['nom_detalle_sectorial'], errors='coerce'
                 )
+
+                # Dividir histórico entre un millón
+                df_sel['nom_detalle_sectorial'] = df_sel['nom_detalle_sectorial'] / 1e6
+
                 df_sel = df_sel.set_index('periodo_dt')
                 df_chart = df_sel.reset_index()
 
@@ -217,7 +229,7 @@ if pagina == "Programación de Ingresos":
                 dominio_min = inicial * 0.9
                 dominio_max = maximo * 1.02
 
-                st.subheader("4. Histórico de INGRESOS (Q4)")
+                st.subheader("4. Histórico de INGRESOS (Q4) (millones de pesos)")
                 chart = alt.Chart(df_chart).mark_line(point=True).encode(
                     x=alt.X(
                         'periodo_dt:T',
@@ -226,7 +238,7 @@ if pagina == "Programación de Ingresos":
                     ),
                     y=alt.Y(
                         'nom_detalle_sectorial:Q',
-                        title='Ingresos Q4',
+                        title='Ingresos Q4 (millones de pesos)',
                         axis=alt.Axis(format='$,.0f'),
                         scale=alt.Scale(domain=[dominio_min, dominio_max], nice=False)
                     ),
@@ -234,7 +246,7 @@ if pagina == "Programación de Ingresos":
                         alt.Tooltip('periodo_dt:T', title='Periodo'),
                         alt.Tooltip(
                             'nom_detalle_sectorial:Q',
-                            title='Ingresos Q4',
+                            title='Ingresos Q4 (millones de pesos)',
                             format='$,.0f'
                         )
                     ]
