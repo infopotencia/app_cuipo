@@ -230,14 +230,14 @@ elif pagina == "Ejecución de Gastos":
     periodo_label_g = st.selectbox("Selecciona el periodo", df_per["periodo_label"].tolist())
     periodo = str(df_per.loc[df_per["periodo_label"] == periodo_label_g, "periodo"].iloc[0])
 
-    # Cargar datos
+   # Cargar datos
     if st.button("Cargar datos"):
         st.session_state["df_gastos"] = obtener_datos_gastos(codigo_ent, periodo)
 
     if "df_gastos" in st.session_state:
         df_raw = st.session_state["df_gastos"]
 
-        # Datos brutos
+        # Mostrar datos brutos
         st.write("### Datos brutos")
         st.dataframe(
             df_raw.style.format({
@@ -246,7 +246,7 @@ elif pagina == "Ejecución de Gastos":
                 "obligaciones": format_cop
             }), use_container_width=True
         )
-        # Descargar Datos brutos
+        # Botón para descargar datos brutos
         buf_raw = io.BytesIO()
         with pd.ExcelWriter(buf_raw) as writer:
             df_raw.to_excel(writer, sheet_name='DatosBrutos', index=False)
@@ -257,7 +257,7 @@ elif pagina == "Ejecución de Gastos":
             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
 
-        # Filtrado para VIGENCIA ACTUAL y lista de códigos
+        # Filtrar solo VIGENCIA ACTUAL y cuentas relevantes
         cuentas_filtro = [
             "2", "2.1.1", "2.1.2.01.01.001", "2.1.2.01.01.003", "2.1.2.01.01.004",
             "2.1.2.01.01.005", "2.1.2.01.02", "2.1.2.01.03", "2.1.2.02.01",
@@ -297,23 +297,18 @@ elif pagina == "Ejecución de Gastos":
         )
         resumen = resumen[resumen["nombre_cuenta"].str.upper() != "GASTOS"]
         tot = resumen[["compromisos", "pagos", "obligaciones"]].sum()
-        resumen = pd.concat([resumen, pd.DataFrame([{"cuenta": "", "nombre_cuenta": "TOTAL", **tot.to_dict()}])], ignore_index=True)
+        resumen = pd.concat([resumen, pd.DataFrame([{"cuenta":"","nombre_cuenta":"TOTAL", **tot.to_dict()}])], ignore_index=True)
 
-        # Mostrar Resumen con columnas renombradas y alineadas
         resumen_disp = resumen.rename(columns={
-            'cuenta': 'Cuenta',
-            'nombre_cuenta': 'Nombre cuenta',
-            'compromisos': 'Compromisos',
-            'pagos': 'Pagos',
-            'obligaciones': 'Obligaciones'
+            'cuenta':'Cuenta',
+            'nombre_cuenta':'Nombre cuenta',
+            'compromisos':'Compromisos',
+            'pagos':'Pagos',
+            'obligaciones':'Obligaciones'
         })
         resumen_disp[['Compromisos','Pagos','Obligaciones']] = resumen_disp[['Compromisos','Pagos','Obligaciones']].applymap(format_cop)
         st.write("### Resumen de compromisos, pagos y obligaciones por cuenta")
         st.markdown(resumen_disp.to_html(index=False), unsafe_allow_html=True)
-        buf_res = io.BytesIO()
-        with pd.ExcelWriter(buf_res) as writer:
-            resumen_disp.to_excel(writer, sheet_name='Resumen', index=False)
-        st.download_button('Descargar Resumen (Excel)', buf_res.getvalue(), 'resumen.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
         # ===== DETALLE GASTOS =====
         gastos = (
@@ -321,18 +316,14 @@ elif pagina == "Ejecución de Gastos":
             .groupby(["cuenta", "nombre_cuenta"], as_index=False)[["compromisos", "pagos", "obligaciones"]]
             .sum()
         )
-        gastos_disp = gastos.drop(columns=["cuenta", "nombre_cuenta"]).rename(columns={
-            'compromisos': 'Compromisos',
-            'pagos': 'Pagos',
-            'obligaciones': 'Obligaciones'
+        gastos_disp = gastos.drop(columns=["cuenta","nombre_cuenta"]).rename(columns={
+            'compromisos':'Compromisos',
+            'pagos':'Pagos',
+            'obligaciones':'Obligaciones'
         })
         gastos_disp[['Compromisos','Pagos','Obligaciones']] = gastos_disp[['Compromisos','Pagos','Obligaciones']].applymap(format_cop)
         st.write("### Detalle GASTOS")
         st.markdown(gastos_disp.to_html(index=False), unsafe_allow_html=True)
-        buf_gas = io.BytesIO()
-        with pd.ExcelWriter(buf_gas) as writer:
-            gastos_disp.to_excel(writer, sheet_name='DetalleGastos', index=False)
-        st.download_button('Descargar Detalle GASTOS (Excel)', buf_gas.getvalue(), 'detalle_gastos.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
         # ===== CONSOLIDADO =====
         vigencias = ["VIGENCIA ACTUAL","RESERVAS","VIGENCIAS FUTURAS - RESERVAS","CUENTAS POR PAGAR","VIGENCIAS FUTURAS - VIGENCIA ACTUAL"]
@@ -340,35 +331,37 @@ elif pagina == "Ejecución de Gastos":
             df_raw["nom_vigencia_del_gasto"].str.strip().str.upper().isin(vigencias) &
             df_raw["nombre_cuenta"].str.strip().str.upper().eq("GASTOS")
         ]
-        consolidado = df_consol.groupby("nom_vigencia_del_gasto", as_index=False)[["compromisos", "pagos", "obligaciones"]].sum()
-        tot_con = consolidado[["compromisos", "pagos", "obligaciones"]].sum()
-        consolidado = pd.concat([consolidado, pd.DataFrame([{"nom_vigencia_del_gasto": "TOTAL", **tot_con.to_dict()}])], ignore_index=True)
+        consolidado = df_consol.groupby("nom_vigencia_del_gasto", as_index=False)[["compromisos","pagos","obligaciones"]].sum()
+        tot_con = consolidado[["compromisos","pagos","obligaciones"]].sum()
+        consolidado = pd.concat([consolidado, pd.DataFrame([{"nom_vigencia_del_gasto":"TOTAL", **tot_con.to_dict()}])], ignore_index=True)
 
         consolidado_disp = consolidado.rename(columns={
-            'nom_vigencia_del_gasto': 'Vigencia del gasto',
-            'compromisos': 'Compromisos',
-            'pagos': 'Pagos',
-            'obligaciones': 'Obligaciones'
+            'nom_vigencia_del_gasto':'Vigencia del gasto',
+            'compromisos':'Compromisos',
+            'pagos':'Pagos',
+            'obligaciones':'Obligaciones'
         })
         consolidado_disp[['Compromisos','Pagos','Obligaciones']] = consolidado_disp[['Compromisos','Pagos','Obligaciones']].applymap(format_cop)
         st.write("### Consolidado de GASTOS por tipo de vigencia")
         st.markdown(consolidado_disp.to_html(index=False), unsafe_allow_html=True)
-        buf_con = io.BytesIO()
-        with pd.ExcelWriter(buf_con) as writer:
-            consolidado_disp.to_excel(writer, sheet_name='Consolidado', index=False)
-        st.download_button('Descargar Consolidado (Excel)', buf_con.getvalue(), 'consolidado.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
-        # ===== DESCARGAR TODO =====
+        # Métrica total global
+        st.metric("Total compromisos para todas las vigencias", format_cop(tot_con["compromisos"]))
+
+        # Botón descargar todo debajo de la métrica
         buf_all = io.BytesIO()
         with pd.ExcelWriter(buf_all) as writer:
             df_raw.to_excel(writer, sheet_name='DatosBrutos', index=False)
             resumen_disp.to_excel(writer, sheet_name='Resumen', index=False)
             gastos_disp.to_excel(writer, sheet_name='DetalleGastos', index=False)
             consolidado_disp.to_excel(writer, sheet_name='Consolidado', index=False)
-        st.download_button('Descargar Todo (Excel)', buf_all.getvalue(), 'ejecucion_gastos_completo.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        st.download_button(
+            label='Descargar Todo (Excel)',
+            data=buf_all.getvalue(),
+            file_name='ejecucion_gastos_completo.xlsx',
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
 
-        # Métrica global
-        st.metric("Total compromisos para todas las vigencias", format_cop(tot_con["compromisos"]))
 
 
 
