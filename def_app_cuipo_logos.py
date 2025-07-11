@@ -296,10 +296,11 @@ elif pagina == "Ejecución de Gastos":
         st.write("### Resumen de compromisos, pagos y obligaciones por cuenta")
         st.markdown(resumen_disp.to_html(index=False), unsafe_allow_html=True)
 
-        # Detalle GASTOS
+        # Detalle GASTOS (ocultar columnas cuenta y nombre_cuenta)
         gastos = df_filtered[df_filtered["nombre_cuenta"].str.upper()=="GASTOS"]
         gastos = gastos.groupby(["cuenta","nombre_cuenta"], as_index=False)[["compromisos","pagos","obligaciones"]].sum()
         gastos_disp = gastos.copy()
+        gastos_disp = gastos_disp.drop(columns=["cuenta","nombre_cuenta"])
         for col in ["compromisos","pagos","obligaciones"]:
             gastos_disp[col] = gastos_disp[col].apply(format_cop)
         st.write("### Detalle GASTOS")
