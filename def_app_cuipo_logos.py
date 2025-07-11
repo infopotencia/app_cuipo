@@ -67,10 +67,12 @@ def obtener_datos_gastos(codigo_entidad, periodo):
     r.raise_for_status()
     return pd.read_csv(io.StringIO(r.text))
 
-# ————————————————
-# Carga de tablas de control
-# ————————————————
-df_mun, df_dep, df_per = cargar_tablas_control()
+# ————————————————  
+# Carga de tablas de control  
+# ————————————————  
+df_mun, df_dep, df_per = cargar_tablas_control()  
+# Nueva carga para la lista de cuentas de ingresos  
+df_cuentas_control = pd.read_excel("Tablas Control.xlsx", sheet_name="Tablacontrolingresos")
 
 # ————————————————
 # Configuración de la página
@@ -120,6 +122,91 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
+if pagina == "Programación de Ingresos":
+    # ——————————————————————————————————————————————
+    # Título + Botón comparativa en la misma línea
+    col1, col2 = st.columns([8, 2])
+    with col1:
+        st.title("💰 Programación de Ingresos")
+    with col2:
+        show_comp = st.button("🔀 Comparativa")
+
+    if show_comp:
+        # ======== UI de Comparativa de Ingresos ========
+        st.subheader("📊 Comparativa de Ingresos por Municipio")
+        # 1) Departamento y municipio principal
+        departamentos = sorted(df_mun["departamento"].unique())
+        departamento = st.selectbox("Departamento:", departamentos)
+        df_muns_dep = df_mun[df_mun["departamento"] == departamento]
+        municipio_principal = st.selectbox(
+            "Municipio principal:", df_muns_dep["nombre_entidad"].tolist()
+        )
+
+        # 2) Modo de comparación
+        modo = st.radio("Seleccionar municipios comparativos por:",
+                        ["Misma categoría", "4 más cercanos en población"])
+        if modo == "Misma categoría":
+            cat = df_muns_dep.loc[
+                df_muns_dep["nombre_entidad"] == municipio_principal, "categoria"
+            ].iloc[0]
+            candidatos = df_muns_dep[df_muns_dep["categoria"] == cat][
+                "nombre_entidad"
+            ].tolist()
+            candidatos.remove(municipio_principal)
+        else:
+            pop0 = df_muns_dep.loc[
+                df_muns_dep["nombre_entidad"] == municipio_principal, "poblacion"
+            ].iloc[0]
+            df_tmp = df_muns_dep.copy()
+            df_tmp["diff"] = (df_tmp["poblacion"] - pop0).abs()
+            candidatos = df_tmp.sort_values("diff").loc[
+                lambda d: d["nombre_entidad"] != municipio_principal
+            ].head(4)["nombre_entidad"].tolist()
+
+        municipios_comp = st.multiselect(
+            "Municipios comparación:", options=candidatos, default=candidatos
+        )
+
+        # 3) Periodo puntual
+        per_lab = st.selectbox("Período puntual:", df_per["periodo_label"].tolist())
+        periodo = str(df_per.loc[df_per["periodo_label"] == per_lab, "periodo"].iloc[0])
+
+        # 4) Cuenta de ingreso
+        cuenta = st.selectbox(
+            "Cuenta de ingreso:", df_cuentas_control["Nombre de la Cuenta"].tolist()
+        )
+        codigo_cuenta = df_cuentas_control.loc[
+            df_cuentas_control["Nombre de la Cuenta"] == cuenta,
+            "Código Completo"
+        ].iloc[0]
+
+        # 5) Botón de comparación
+        if st.button("Comparar ingresos"):
+            muns = [municipio_principal] + municipios_comp
+            resultados = []
+            for mun in muns:
+                cod_ent = str(df_muns_dep.loc[
+                    df_muns_dep["nombre_entidad"] == mun, "codigo_entidad"
+                ].iloc[0])
+                df_tmp = obtener_ingresos(cod_ent, periodo)
+                df_tmp = df_tmp[df_tmp["ambito_codigo"] == codigo_cuenta]
+                monto = (
+                    pd.to_numeric(df_tmp["nom_detalle_sectorial"], errors="coerce").sum()
+                    / 1e6
+                )
+                resultados.append({"Municipio": mun, "Ingresos (millones)": monto})
+
+            df_res = pd.DataFrame(resultados)
+            chart = alt.Chart(df_res).mark_bar().encode(
+                x=alt.X("Municipio:N", sort="-y", title="Municipio"),
+                y=alt.Y("Ingresos (millones):Q",
+                        title="Ingresos (millones de pesos)",
+                        axis=alt.Axis(format="$,.0f")),
+                tooltip=["Municipio", "Ingresos (millones)"]
+            ).properties(width=700, height=400)
+            st.altair_chart(chart, use_container_width=True)
+
+    else:
 
 if pagina == "Programación de Ingresos":
     st.title("💰 Programación de Ingresos")
