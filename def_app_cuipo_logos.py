@@ -53,6 +53,21 @@ def obtener_ingresos(codigo_entidad, periodo=None):
             df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
     return df
 
+@st.cache_data(ttl=600, show_spinner=False)
+def obtener_datos_gastos(codigo_entidad, periodo):
+    cols = [
+        "periodo", "codigo_entidad", "nombre_entidad",
+        "cuenta", "nombre_cuenta", "compromisos", "pagos", "obligaciones", "nom_vigencia_del_gasto"
+    ]
+    where = (
+        f"codigo_entidad='{codigo_entidad}' AND "
+        f"periodo='{periodo}'"
+    )
+    params = {"$select": ",".join(cols), "$where": where, "$limit": 10000}
+    r = requests.get("https://www.datos.gov.co/resource/4f7r-epif.csv", params=params, timeout=30)
+    r.raise_for_status()
+    return pd.read_csv(io.StringIO(r.text))
+
 # ————————————————
 # Carga de tablas de control
 # ————————————————
