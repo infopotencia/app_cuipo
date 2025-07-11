@@ -172,16 +172,27 @@ if pagina == "Programación de Ingresos":
             pd.to_numeric(resumen['Presupuesto Definitivo'], errors='coerce') / 1e6
         )
 
-        st.subheader("2. Resumen de ingresos filtrados (millones de pesos)")
-        styled = resumen.style.format({
+        # Renombrar columnas para mostrar con mayúscula inicial, sin guiones bajos y con tildes
+        resumen = resumen.rename(columns={
+            'periodo': 'Periodo',
+            'codigo_entidad': 'Código Entidad',
+            'nombre_entidad': 'Nombre Entidad',
+            'ambito_codigo': 'Ámbito Código',
+            'ambito_nombre': 'Ámbito Nombre'
+        })
+
+        # Quitar la columna de índice en la visualización
+        styled = resumen.style.hide_index().format({
             "Presupuesto Inicial": format_cop,
             "Presupuesto Definitivo": format_cop
         })
+
+        st.subheader("2. Resumen de ingresos filtrados (millones de pesos)")
         st.dataframe(styled, use_container_width=True)
 
-        if 'ambito_nombre' in resumen.columns and 'Presupuesto Definitivo' in resumen.columns:
+        if 'Ámbito Nombre' in resumen.columns and 'Presupuesto Definitivo' in resumen.columns:
             total_ing = resumen.loc[
-                resumen['ambito_nombre'].str.upper() == 'INGRESOS',
+                resumen['Ámbito Nombre'].str.upper() == 'INGRESOS',
                 'Presupuesto Definitivo'
             ].sum()
 
@@ -258,7 +269,6 @@ if pagina == "Programación de Ingresos":
                     "No se encontró la columna 'nom_detalle_sectorial' "
                     "en los datos históricos."
                 )
-
 
 elif pagina == "Ejecución de Gastos":
     st.title("💸 Ejecución de Gastos")
