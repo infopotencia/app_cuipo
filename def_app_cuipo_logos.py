@@ -284,88 +284,42 @@ elif pagina == "Ejecución de Gastos":
             df_raw["nom_vigencia_del_gasto"].str.strip().str.upper().eq("VIGENCIA ACTUAL")
         ]
 
-        # Resumen general sin GASTOS
-        resumen = (
-            df_filtered
-            .groupby(["cuenta", "nombre_cuenta"], as_index=False)[["compromisos", "pagos", "obligaciones"]]
-            .sum()
-        )
+        # Resumen general (sin index)
+        resumen = df_filtered.groupby(["cuenta","nombre_cuenta"], as_index=False)[["compromisos","pagos","obligaciones"]].sum()
         resumen = resumen[resumen["nombre_cuenta"].str.upper() != "GASTOS"]
-        # Añadir fila TOTAL
-        tot = resumen[["compromisos", "pagos", "obligaciones"]].sum()
-        total_row = {
-            "cuenta": "",
-            "nombre_cuenta": "TOTAL",
-            "compromisos": tot["compromisos"],
-            "pagos": tot["pagos"],
-            "obligaciones": tot["obligaciones"]
-        }
-        resumen = pd.concat([resumen, pd.DataFrame([total_row])], ignore_index=True)
-
-        # Mostrar resumen sin índice
+        tot = resumen[["compromisos","pagos","obligaciones"]].sum()
+        resumen = pd.concat([resumen, pd.DataFrame([{"cuenta":"","nombre_cuenta":"TOTAL",**tot.to_dict()}])], ignore_index=True)
+        # Formato y renderizado sin índice
+        resumen_disp = resumen.copy()
+        for col in ["compromisos","pagos","obligaciones"]:
+            resumen_disp[col] = resumen_disp[col].apply(format_cop)
         st.write("### Resumen de compromisos, pagos y obligaciones por cuenta")
-        st.dataframe(
-            resumen.style.hide(axis="index").format({
-                "compromisos": format_cop,
-                "pagos": format_cop,
-                "obligaciones": format_cop
-            }), use_container_width=True
-        )
+        st.markdown(resumen_disp.to_html(index=False), unsafe_allow_html=True)
 
-        # Detalle sólo GASTOS
-        gastos = (
-            df_filtered[df_filtered["nombre_cuenta"].str.upper() == "GASTOS"]
-            .groupby(["cuenta", "nombre_cuenta"], as_index=False)[["compromisos", "pagos", "obligaciones"]]
-            .sum()
-        )
+        # Detalle GASTOS
+        gastos = df_filtered[df_filtered["nombre_cuenta"].str.upper()=="GASTOS"]
+        gastos = gastos.groupby(["cuenta","nombre_cuenta"], as_index=False)[["compromisos","pagos","obligaciones"]].sum()
+        gastos_disp = gastos.copy()
+        for col in ["compromisos","pagos","obligaciones"]:
+            gastos_disp[col] = gastos_disp[col].apply(format_cop)
         st.write("### Detalle GASTOS")
-        st.dataframe(
-            gastos.style.hide(axis="index").format({
-                "compromisos": format_cop,
-                "pagos": format_cop,
-                "obligaciones": format_cop
-            }), use_container_width=True
-        )
+        st.markdown(gastos_disp.to_html(index=False), unsafe_allow_html=True)
 
         # Métrica total sin GASTOS
         st.metric("Total compromisos (sin GASTOS)", format_cop(tot["compromisos"]))
 
-        # Consolidado de GASTOS por tipo de vigencia
-        vigencias = [
-            "VIGENCIA ACTUAL", "RESERVAS", "VIGENCIAS FUTURAS - RESERVAS",
-            "CUENTAS POR PAGAR", "VIGENCIAS FUTURAS - VIGENCIA ACTUAL"
-        ]
-        df_consol = df_raw[
-            df_raw["nom_vigencia_del_gasto"].str.strip().str.upper().isin(vigencias) &
-            df_raw["nombre_cuenta"].str.strip().str.upper().eq("GASTOS")
-        ]
-        consolidado = (
-            df_consol
-            .groupby("nom_vigencia_del_gasto", as_index=False)[["compromisos", "pagos", "obligaciones"]]
-            .sum()
-        )
-        # Añadir fila TOTAL al consolidado
-        tot_con = consolidado[["compromisos", "pagos", "obligaciones"]].sum()
-        total_con_row = {
-            "nom_vigencia_del_gasto": "TOTAL",
-            "compromisos": tot_con["compromisos"],
-            "pagos": tot_con["pagos"],
-            "obligaciones": tot_con["obligaciones"]
-        }
-        consolidado = pd.concat([consolidado, pd.DataFrame([total_con_row])], ignore_index=True)
-
-        # Mostrar consolidado sin índice
+        # Consolidado de GASTOS por vigencia
+        vigencias = ["VIGENCIA ACTUAL","RESERVAS","VIGENCIAS FUTURAS - RESERVAS","CUENTAS POR PAGAR","VIGENCIAS FUTURAS - VIGENCIA ACTUAL"]
+        df_consol = df_raw[df_raw["nom_vigencia_del_gasto"].str.strip().str.upper().isin(vigencias) & df_raw["nombre_cuenta"].str.strip().str.upper().eq("GASTOS")]
+        consolidado = df_consol.groupby("nom_vigencia_del_gasto",as_index=False)[["compromisos","pagos","obligaciones"]].sum()
+        tot_con = consolidado[["compromisos","pagos","obligaciones"]].sum()
+        consolidado = pd.concat([consolidado, pd.DataFrame([{"nom_vigencia_del_gasto":"TOTAL",**tot_con.to_dict()}])], ignore_index=True)
+        consolidado_disp = consolidado.copy()
+        for col in ["compromisos","pagos","obligaciones"]:
+            consolidado_disp[col] = consolidado_disp[col].apply(format_cop)
         st.write("### Consolidado de GASTOS por tipo de vigencia")
-        st.dataframe(
-            consolidado.style.hide(axis="index").format({
-                "compromisos": format_cop,
-                "pagos": format_cop,
-                "obligaciones": format_cop
-            }), use_container_width=True
-        )
+        st.markdown(consolidado_disp.to_html(index=False), unsafe_allow_html=True)
 
-        # Métrica grande con total de compromisos para todas las vigencias
-        st.metric(
-            "Total compromisos para todas las vigencias",
-            format_cop(tot_con["compromisos"])
-        )
+        # Total global de compromisos
+        st.metric("Total compromisos para todas las vigencias", format_cop(tot_con["compromisos"]))
+
