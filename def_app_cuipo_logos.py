@@ -298,7 +298,7 @@ elif pagina == "Ejecución de Gastos":
         }
         resumen = pd.concat([resumen, pd.DataFrame([total_row])], ignore_index=True)
 
-        st.write("### Resumen de compromisos, pagos y obligaciones por cuenta")
+        st.write("### Resumen de compromisos, pagos y obligaciones por cuenta - Vigencia Actual")
         st.dataframe(
             resumen.style.format({
                 "compromisos": format_cop,
@@ -313,7 +313,7 @@ elif pagina == "Ejecución de Gastos":
             .groupby(["cuenta", "nombre_cuenta"], as_index=False)[["compromisos", "pagos", "obligaciones"]]
             .sum()
         )
-        st.write("### Detalle GASTOS")
+        st.write("### Detalle GASTOS - Vigencia Actual")
         st.dataframe(
             gastos.style.format({
                 "compromisos": format_cop,
