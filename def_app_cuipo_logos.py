@@ -443,6 +443,7 @@ elif pagina == "Ejecución de Gastos":
             file_name='ejecucion_gastos_completo.xlsx',
             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
+        
 elif pagina == "Comparativa de Ingresos":
     st.title("📊 Comparativa de Ingresos por Municipio")
 
