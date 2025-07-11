@@ -279,7 +279,7 @@ elif pagina == "Ejecución de Gastos":
             df_raw["nom_vigencia_del_gasto"].str.strip().str.upper().eq("VIGENCIA ACTUAL")
         ]
 
-        # Resumen general sin GASTOS
+         # Resumen general sin GASTOS
         resumen = (
             df_filtered
             .groupby(["cuenta", "nombre_cuenta"], as_index=False)[["compromisos", "pagos", "obligaciones"]]
@@ -298,9 +298,9 @@ elif pagina == "Ejecución de Gastos":
         }
         resumen = pd.concat([resumen, pd.DataFrame([total_row])], ignore_index=True)
 
-        st.write("### Resumen de compromisos, pagos y obligaciones por cuenta - Vigencia Actual")
+        st.write("### Resumen de compromisos, pagos y obligaciones por cuenta")
         st.dataframe(
-            resumen.style.format({
+            resumen.style.hide_index().format({
                 "compromisos": format_cop,
                 "pagos": format_cop,
                 "obligaciones": format_cop
@@ -313,9 +313,9 @@ elif pagina == "Ejecución de Gastos":
             .groupby(["cuenta", "nombre_cuenta"], as_index=False)[["compromisos", "pagos", "obligaciones"]]
             .sum()
         )
-        st.write("### Detalle GASTOS - Vigencia Actual")
+        st.write("### Detalle GASTOS")
         st.dataframe(
-            gastos.style.format({
+            gastos.style.hide_index().format({
                 "compromisos": format_cop,
                 "pagos": format_cop,
                 "obligaciones": format_cop
@@ -323,7 +323,7 @@ elif pagina == "Ejecución de Gastos":
         )
 
         # Métrica total sin GASTOS
-        st.metric("Total compromisos - Vigencia Actual", format_cop(tot["compromisos"]))
+        st.metric("Total compromisos (sin GASTOS)", format_cop(tot["compromisos"]))
 
         # Consolidado de GASTOS por tipo de vigencia
         vigencias = [
@@ -339,7 +339,7 @@ elif pagina == "Ejecución de Gastos":
             .groupby("nom_vigencia_del_gasto", as_index=False)[["compromisos", "pagos", "obligaciones"]]
             .sum()
         )
-         # Añadir fila TOTAL al consolidado
+        # Añadir fila TOTAL al consolidado
         tot_con = consolidado[["compromisos", "pagos", "obligaciones"]].sum()
         total_con_row = {
             "nom_vigencia_del_gasto": "TOTAL",
@@ -348,17 +348,17 @@ elif pagina == "Ejecución de Gastos":
             "obligaciones": tot_con["obligaciones"]
         }
         consolidado = pd.concat([consolidado, pd.DataFrame([total_con_row])], ignore_index=True)
-        
+
         st.write("### Consolidado de GASTOS por tipo de vigencia")
         st.dataframe(
-            consolidado.style.format({
+            consolidado.style.hide_index().format({
                 "compromisos": format_cop,
                 "pagos": format_cop,
                 "obligaciones": format_cop
             }), use_container_width=True
         )
 
-         # Métrica grande con total de compromisos para todas las vigencias
+        # Métrica grande con total de compromisos para todas las vigencias
         st.metric(
             "Total compromisos para todas las vigencias",
             format_cop(tot_con["compromisos"])
