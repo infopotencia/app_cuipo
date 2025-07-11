@@ -279,14 +279,18 @@ elif pagina == "Ejecución de Gastos":
             df_raw["nom_vigencia_del_gasto"].str.strip().str.upper().eq("VIGENCIA ACTUAL")
         ]
 
-         # Resumen general sin GASTOS
+        df_filtered = df_raw[
+            df_raw["cuenta"].isin(cuentas_filtro) &
+            df_raw["nom_vigencia_del_gasto"].str.strip().str.upper().eq("VIGENCIA ACTUAL")
+        ]
+
+        # Resumen general sin GASTOS
         resumen = (
             df_filtered
             .groupby(["cuenta", "nombre_cuenta"], as_index=False)[["compromisos", "pagos", "obligaciones"]]
             .sum()
         )
         resumen = resumen[resumen["nombre_cuenta"].str.upper() != "GASTOS"]
-
         # Añadir fila TOTAL
         tot = resumen[["compromisos", "pagos", "obligaciones"]].sum()
         total_row = {
@@ -298,9 +302,10 @@ elif pagina == "Ejecución de Gastos":
         }
         resumen = pd.concat([resumen, pd.DataFrame([total_row])], ignore_index=True)
 
+        # Mostrar resumen sin índice
         st.write("### Resumen de compromisos, pagos y obligaciones por cuenta")
         st.dataframe(
-            resumen.style.hide_index().format({
+            resumen.style.hide(axis="index").format({
                 "compromisos": format_cop,
                 "pagos": format_cop,
                 "obligaciones": format_cop
@@ -315,7 +320,7 @@ elif pagina == "Ejecución de Gastos":
         )
         st.write("### Detalle GASTOS")
         st.dataframe(
-            gastos.style.hide_index().format({
+            gastos.style.hide(axis="index").format({
                 "compromisos": format_cop,
                 "pagos": format_cop,
                 "obligaciones": format_cop
@@ -349,9 +354,10 @@ elif pagina == "Ejecución de Gastos":
         }
         consolidado = pd.concat([consolidado, pd.DataFrame([total_con_row])], ignore_index=True)
 
+        # Mostrar consolidado sin índice
         st.write("### Consolidado de GASTOS por tipo de vigencia")
         st.dataframe(
-            consolidado.style.hide_index().format({
+            consolidado.style.hide(axis="index").format({
                 "compromisos": format_cop,
                 "pagos": format_cop,
                 "obligaciones": format_cop
@@ -363,7 +369,3 @@ elif pagina == "Ejecución de Gastos":
             "Total compromisos para todas las vigencias",
             format_cop(tot_con["compromisos"])
         )
-
-
-       
-
