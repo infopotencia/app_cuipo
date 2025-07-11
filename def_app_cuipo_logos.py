@@ -253,10 +253,9 @@ if pagina == "Programación de Ingresos":
                 )
 
                 # Dominio Y unificado
-                init_vals = df_long[df_long['Periodo']==df_long['Periodo'].min()]
-                min_init = init_vals['Monto'].min()
-                max_all = df_long['Monto'].max()
-                dominio = [min_init * 0.9, max_all * 1.02]
+                min_real = df_chart['Ingresos Reales'].min()
+                max_all  = df_long['Monto'].max()
+                dominio  = [min_real * 0.9, max_all * 1.02]
 
                 # Gráfico con leyenda y colores distintos
                 chart = alt.Chart(df_long).mark_line(point=True).encode(
