@@ -339,6 +339,16 @@ elif pagina == "Ejecución de Gastos":
             .groupby("nom_vigencia_del_gasto", as_index=False)[["compromisos", "pagos", "obligaciones"]]
             .sum()
         )
+         # Añadir fila TOTAL al consolidado
+        tot_con = consolidado[["compromisos", "pagos", "obligaciones"]].sum()
+        total_con_row = {
+            "nom_vigencia_del_gasto": "TOTAL",
+            "compromisos": tot_con["compromisos"],
+            "pagos": tot_con["pagos"],
+            "obligaciones": tot_con["obligaciones"]
+        }
+        consolidado = pd.concat([consolidado, pd.DataFrame([total_con_row])], ignore_index=True)
+        
         st.write("### Consolidado de GASTOS por tipo de vigencia")
         st.dataframe(
             consolidado.style.format({
