@@ -358,3 +358,6 @@ elif pagina == "Ejecución de Gastos":
             }), use_container_width=True
         )
 
+        #Métrica total por tipo de vigencia
+        st.metric("Total Vigencias - Compromisos", format_cop(tot_con["compromisos"]))
+
