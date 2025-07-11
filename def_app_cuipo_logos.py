@@ -439,7 +439,6 @@ elif pagina == "Comparativa de Ingresos":
     # 1) Departamento y municipio principal
     departamentos = sorted(df_mun["departamento"].unique())
     departamento = st.selectbox("Departamento:", departamentos)
-
     df_muns_dep = df_mun[df_mun["departamento"] == departamento]
     municipio_principal = st.selectbox(
         "Municipio principal:", df_muns_dep["nombre_entidad"].tolist()
@@ -486,17 +485,22 @@ elif pagina == "Comparativa de Ingresos":
 
     # 5) Botón de comparación
     if st.button("Comparar ingresos"):
-        municipios = [municipio_principal] + municipios_comp
         resultados = []
-        for mun in municipios:
+        for mun in [municipio_principal] + municipios_comp:
             cod_ent_mun = str(
                 df_muns_dep.loc[
                     df_muns_dep["nombre_entidad"] == mun, "codigo_entidad"
                 ].iloc[0]
             )
             df_tmp = obtener_ingresos(cod_ent_mun, periodo_cmp)
-            df_tmp = df_tmp[df_tmp["ambito_codigo"] == codigo_cuenta]
-            monto = pd.to_numeric(df_tmp["nom_detalle_sectorial"], errors="coerce").sum() / 1e6
+            # Filtrar solo si existe la columna ambito_codigo
+            if "ambito_codigo" in df_tmp.columns:
+                df_tmp = df_tmp[df_tmp["ambito_codigo"] == codigo_cuenta]
+            else:
+                df_tmp = pd.DataFrame()
+            monto = pd.to_numeric(
+                df_tmp.get("nom_detalle_sectorial", pd.Series()), errors="coerce"
+            ).sum() / 1e6
             resultados.append({"Municipio": mun, "Ingresos (millones)": monto})
 
         df_res = pd.DataFrame(resultados)
