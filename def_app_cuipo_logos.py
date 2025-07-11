@@ -325,20 +325,21 @@ elif pagina == "Ejecución de Gastos":
         # Métrica total sin GASTOS
         st.metric("Total compromisos (sin GASTOS)", format_cop(tot["compromisos"]))
 
-        # Consolidado por tipo de vigencia
+        # Consolidado de GASTOS por tipo de vigencia
         vigencias = [
             "VIGENCIA ACTUAL", "RESERVAS", "VIGENCIAS FUTURAS - RESERVAS",
             "CUENTAS POR PAGAR", "VIGENCIAS FUTURAS - VIGENCIA ACTUAL"
         ]
         df_consol = df_raw[
-            df_raw["nom_vigencia_del_gasto"].str.strip().str.upper().isin(vigencias)
+            df_raw["nom_vigencia_del_gasto"].str.strip().str.upper().isin(vigencias) &
+            df_raw["nombre_cuenta"].str.strip().str.upper().eq("GASTOS")
         ]
         consolidado = (
             df_consol
             .groupby("nom_vigencia_del_gasto", as_index=False)[["compromisos", "pagos", "obligaciones"]]
             .sum()
         )
-        st.write("### Consolidado por tipo de vigencia")
+        st.write("### Consolidado de GASTOS por tipo de vigencia")
         st.dataframe(
             consolidado.style.format({
                 "compromisos": format_cop,
