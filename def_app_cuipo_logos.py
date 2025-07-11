@@ -504,25 +504,29 @@ elif pagina == "Comparativa de Ingresos":
     if st.button("Comparar ingresos"):
         resultados = []
         for mun in [municipio_principal] + municipios_comp:
-            cod_ent_mun = str(df_mun.loc[
-                df_mun["nombre_entidad"] == mun, "codigo_entidad"
-            ].iloc[0])
+            # 1) Traer datos brutos de la API para el período dado
+            cod_ent_mun = str(
+                df_mun.loc[df_mun["nombre_entidad"] == mun, "codigo_entidad"].iloc[0]
+            )
             df_data = obtener_ingresos(cod_ent_mun, periodo_cmp)
 
-            # Filtrar por código de detalle sectorial (la cuenta real)
-            if "cod_detalle_sectorial" in df_data.columns:
-                df_data = df_data[df_data["cod_detalle_sectorial"] == codigo_cuenta]
+            # 2) Filtrar localmente por el ambito_codigo seleccionado
+            if "ambito_codigo" in df_data.columns:
+                df_filtrado = df_data[df_data["ambito_codigo"] == codigo_cuenta]
             else:
-                df_data = pd.DataFrame()
+                df_filtrado = pd.DataFrame()
 
-            # Sumar la columna numérica 'nom_detalle_sectorial'
-            monto = pd.to_numeric(
-                df_data.get("nom_detalle_sectorial", []), errors="coerce"
-            ).sum() / 1e6
+            # 3) Sumar el valor numérico (nom_detalle_sectorial es tu presupuesto definitivo)
+            monto = (
+                pd.to_numeric(df_filtrado.get("nom_detalle_sectorial", []), errors="coerce")
+                .sum()
+                / 1e6
+            )
 
             resultados.append({"Municipio": mun, "Ingresos (millones)": monto})
 
         df_res = pd.DataFrame(resultados)
+
         chart = (
             alt.Chart(df_res)
             .mark_bar()
@@ -538,7 +542,6 @@ elif pagina == "Comparativa de Ingresos":
             .properties(width=700, height=400)
         )
         st.altair_chart(chart, use_container_width=True)
-
 
 
 
