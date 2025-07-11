@@ -123,8 +123,7 @@ st.sidebar.markdown(
 )
 
 if pagina == "Programación de Ingresos":
-    # ——————————————————————————————————————————————
-    # Título + Botón comparativa en la misma línea
+    # — Título y botón comparativa en la misma línea —
     col1, col2 = st.columns([8, 2])
     with col1:
         st.title("💰 Programación de Ingresos")
@@ -132,9 +131,10 @@ if pagina == "Programación de Ingresos":
         show_comp = st.button("🔀 Comparativa")
 
     if show_comp:
-        # ======== UI de Comparativa de Ingresos ========
+        # ===== UI de Comparativa de Ingresos =====
         st.subheader("📊 Comparativa de Ingresos por Municipio")
-        # 1) Departamento y municipio principal
+
+        # 1) Selección de departamento y municipio principal
         departamentos = sorted(df_mun["departamento"].unique())
         departamento = st.selectbox("Departamento:", departamentos)
         df_muns_dep = df_mun[df_mun["departamento"] == departamento]
@@ -149,9 +149,10 @@ if pagina == "Programación de Ingresos":
             cat = df_muns_dep.loc[
                 df_muns_dep["nombre_entidad"] == municipio_principal, "categoria"
             ].iloc[0]
-            candidatos = df_muns_dep[df_muns_dep["categoria"] == cat][
-                "nombre_entidad"
-            ].tolist()
+            candidatos = (
+                df_muns_dep[df_muns_dep["categoria"] == cat]["nombre_entidad"]
+                .tolist()
+            )
             candidatos.remove(municipio_principal)
         else:
             pop0 = df_muns_dep.loc[
@@ -159,9 +160,11 @@ if pagina == "Programación de Ingresos":
             ].iloc[0]
             df_tmp = df_muns_dep.copy()
             df_tmp["diff"] = (df_tmp["poblacion"] - pop0).abs()
-            candidatos = df_tmp.sort_values("diff").loc[
-                lambda d: d["nombre_entidad"] != municipio_principal
-            ].head(4)["nombre_entidad"].tolist()
+            candidatos = (
+                df_tmp[ df_tmp["nombre_entidad"] != municipio_principal]
+                .nsmallest(4, "diff")["nombre_entidad"]
+                .tolist()
+            )
 
         municipios_comp = st.multiselect(
             "Municipios comparación:", options=candidatos, default=candidatos
@@ -185,9 +188,11 @@ if pagina == "Programación de Ingresos":
             muns = [municipio_principal] + municipios_comp
             resultados = []
             for mun in muns:
-                cod_ent = str(df_muns_dep.loc[
-                    df_muns_dep["nombre_entidad"] == mun, "codigo_entidad"
-                ].iloc[0])
+                cod_ent = str(
+                    df_muns_dep.loc[
+                        df_muns_dep["nombre_entidad"] == mun, "codigo_entidad"
+                    ].iloc[0]
+                )
                 df_tmp = obtener_ingresos(cod_ent, periodo)
                 df_tmp = df_tmp[df_tmp["ambito_codigo"] == codigo_cuenta]
                 monto = (
@@ -208,175 +213,175 @@ if pagina == "Programación de Ingresos":
 
     else:
         
-    if pagina == "Programación de Ingresos":
-        st.title("💰 Programación de Ingresos")
-    
-        # Selección de nivel geográfico
-        nivel = st.selectbox("Nivel geográfico:", ["Municipios", "Gobernaciones"])
-        if nivel == "Municipios":
-            deps = sorted(df_mun["departamento"].unique())
-            dep = st.selectbox("Departamento:", deps)
-            df_ent = df_mun[df_mun["departamento"] == dep]
-            label = "Municipio"
-        else:
-            df_ent = df_dep
-            label = "Gobernación"
-        ent = st.selectbox(f"Selecciona {label}:", df_ent["nombre_entidad"].tolist())
-        cod_ent = str(df_ent.loc[df_ent["nombre_entidad"] == ent, "codigo_entidad"].iloc[0])
-    
-        # Selección de período puntual
-        per_lab = st.selectbox("Período puntual:", df_per["periodo_label"].tolist())
-        per     = str(df_per.loc[df_per["periodo_label"] == per_lab, "periodo"].iloc[0])
-    
-        # 1) Cargar ingresos
-        if st.button("Cargar ingresos"):
-            with st.spinner("Cargando datos..."):
-                st.session_state["df_ingresos"] = obtener_ingresos(cod_ent, per)
-    
-        # 2) Tabla resumen y descarga de brutos
-        if "df_ingresos" in st.session_state:
-            df_i = st.session_state["df_ingresos"]
-            st.subheader("1. Datos brutos de ingresos")
-            st.dataframe(df_i, use_container_width=True)
-    
-            # Descargar datos brutos
-            buf_raw = io.BytesIO()
-            with pd.ExcelWriter(buf_raw, engine="openpyxl") as writer:
-                df_i.to_excel(writer, index=False, sheet_name="Datos Brutos")
-            buf_raw.seek(0)
-            st.download_button(
-                "⬇️ Descargar datos brutos en Excel",
-                data=buf_raw,
-                file_name="datos_brutos_ingresos.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-    
-            # Filtrar ámbitos y preparar resumen
-            codigos = [
-                "1","1.1","1.1.01.01.200","1.1.01.02.104",
-                "1.1.01.02.200","1.1.01.02.300","1.1.02.06.001",
-                "1.2.06","1.2.07"
-            ]
-            df_fil = df_i[df_i.get("ambito_codigo","").isin(codigos)]
-            drop_cols = [c for c in ['cuenta','presupuesto_inicial','presupuesto_definitivo'] if c in df_fil]
-            resumen = df_fil.drop(columns=drop_cols).rename(columns={
-                'cod_detalle_sectorial': 'Presupuesto Inicial',
-                'nom_detalle_sectorial': 'Presupuesto Definitivo'
-            })
-            resumen['Presupuesto Inicial']   = pd.to_numeric(resumen['Presupuesto Inicial'], errors='coerce')   / 1e6
-            resumen['Presupuesto Definitivo'] = pd.to_numeric(resumen['Presupuesto Definitivo'], errors='coerce') / 1e6
-    
-            resumen = (resumen
-                .rename(columns={
-                    'periodo': 'Periodo',
-                    'codigo_entidad': 'Código Entidad',
-                    'nombre_entidad': 'Nombre Entidad',
-                    'ambito_codigo': 'Ámbito Código',
-                    'ambito_nombre': 'Ámbito Nombre',
-                    'nombre_cuenta': 'Nombre Cuenta'
+        if pagina == "Programación de Ingresos":
+            st.title("💰 Programación de Ingresos")
+        
+            # Selección de nivel geográfico
+            nivel = st.selectbox("Nivel geográfico:", ["Municipios", "Gobernaciones"])
+            if nivel == "Municipios":
+                deps = sorted(df_mun["departamento"].unique())
+                dep = st.selectbox("Departamento:", deps)
+                df_ent = df_mun[df_mun["departamento"] == dep]
+                label = "Municipio"
+            else:
+                df_ent = df_dep
+                label = "Gobernación"
+            ent = st.selectbox(f"Selecciona {label}:", df_ent["nombre_entidad"].tolist())
+            cod_ent = str(df_ent.loc[df_ent["nombre_entidad"] == ent, "codigo_entidad"].iloc[0])
+        
+            # Selección de período puntual
+            per_lab = st.selectbox("Período puntual:", df_per["periodo_label"].tolist())
+            per     = str(df_per.loc[df_per["periodo_label"] == per_lab, "periodo"].iloc[0])
+        
+            # 1) Cargar ingresos
+            if st.button("Cargar ingresos"):
+                with st.spinner("Cargando datos..."):
+                    st.session_state["df_ingresos"] = obtener_ingresos(cod_ent, per)
+        
+            # 2) Tabla resumen y descarga de brutos
+            if "df_ingresos" in st.session_state:
+                df_i = st.session_state["df_ingresos"]
+                st.subheader("1. Datos brutos de ingresos")
+                st.dataframe(df_i, use_container_width=True)
+        
+                # Descargar datos brutos
+                buf_raw = io.BytesIO()
+                with pd.ExcelWriter(buf_raw, engine="openpyxl") as writer:
+                    df_i.to_excel(writer, index=False, sheet_name="Datos Brutos")
+                buf_raw.seek(0)
+                st.download_button(
+                    "⬇️ Descargar datos brutos en Excel",
+                    data=buf_raw,
+                    file_name="datos_brutos_ingresos.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+        
+                # Filtrar ámbitos y preparar resumen
+                codigos = [
+                    "1","1.1","1.1.01.01.200","1.1.01.02.104",
+                    "1.1.01.02.200","1.1.01.02.300","1.1.02.06.001",
+                    "1.2.06","1.2.07"
+                ]
+                df_fil = df_i[df_i.get("ambito_codigo","").isin(codigos)]
+                drop_cols = [c for c in ['cuenta','presupuesto_inicial','presupuesto_definitivo'] if c in df_fil]
+                resumen = df_fil.drop(columns=drop_cols).rename(columns={
+                    'cod_detalle_sectorial': 'Presupuesto Inicial',
+                    'nom_detalle_sectorial': 'Presupuesto Definitivo'
                 })
-                .reset_index(drop=True)
-            )
-    
-            total_ing = resumen.loc[
-                resumen['Ámbito Nombre'].str.upper() == 'INGRESOS',
-                'Presupuesto Definitivo'
-            ].sum()
-    
-            # Mostrar resumen formateado sin índice
-            tabla = resumen.copy()
-            tabla['Presupuesto Inicial']   = tabla['Presupuesto Inicial'].apply(format_cop)
-            tabla['Presupuesto Definitivo'] = tabla['Presupuesto Definitivo'].apply(format_cop)
-    
-            st.subheader("2. Resumen de ingresos filtrados (millones de pesos)")
-            st.markdown(tabla.to_html(index=False, escape=False), unsafe_allow_html=True)
-    
-            st.subheader("3. Total Presupuesto Definitivo (INGRESOS) (millones de pesos)")
-            st.metric("", format_cop(total_ing))
-    
-        # 3) Histórico Nominal vs Real con escala ajustada al mínimo real
-        if st.button("Mostrar histórico"):
-            with st.spinner("Obteniendo histórico Q4..."):
-                df_hist = obtener_ingresos(cod_ent)
-                df_hist.columns = df_hist.columns.str.strip()
-                df_hist = df_hist[df_hist['ambito_nombre'].str.upper() == 'INGRESOS']
-                df_hist['periodo_dt'] = pd.to_datetime(df_hist['periodo'], format='%Y%m%d', errors='coerce')
-                df_hist['year']      = df_hist['periodo_dt'].dt.year
-                df_hist['md']        = df_hist['periodo_dt'].dt.strftime('%m%d')
-    
-                registros = []
-                current = df_hist['year'].max()
-                for yr, grp in df_hist.groupby('year'):
-                    if yr != current:
-                        q4 = grp[grp['md']=='1201']
-                        if not q4.empty:
-                            registros.append(q4.loc[q4['periodo_dt'].idxmax()])
+                resumen['Presupuesto Inicial']   = pd.to_numeric(resumen['Presupuesto Inicial'], errors='coerce')   / 1e6
+                resumen['Presupuesto Definitivo'] = pd.to_numeric(resumen['Presupuesto Definitivo'], errors='coerce') / 1e6
+        
+                resumen = (resumen
+                    .rename(columns={
+                        'periodo': 'Periodo',
+                        'codigo_entidad': 'Código Entidad',
+                        'nombre_entidad': 'Nombre Entidad',
+                        'ambito_codigo': 'Ámbito Código',
+                        'ambito_nombre': 'Ámbito Nombre',
+                        'nombre_cuenta': 'Nombre Cuenta'
+                    })
+                    .reset_index(drop=True)
+                )
+        
+                total_ing = resumen.loc[
+                    resumen['Ámbito Nombre'].str.upper() == 'INGRESOS',
+                    'Presupuesto Definitivo'
+                ].sum()
+        
+                # Mostrar resumen formateado sin índice
+                tabla = resumen.copy()
+                tabla['Presupuesto Inicial']   = tabla['Presupuesto Inicial'].apply(format_cop)
+                tabla['Presupuesto Definitivo'] = tabla['Presupuesto Definitivo'].apply(format_cop)
+        
+                st.subheader("2. Resumen de ingresos filtrados (millones de pesos)")
+                st.markdown(tabla.to_html(index=False, escape=False), unsafe_allow_html=True)
+        
+                st.subheader("3. Total Presupuesto Definitivo (INGRESOS) (millones de pesos)")
+                st.metric("", format_cop(total_ing))
+        
+            # 3) Histórico Nominal vs Real con escala ajustada al mínimo real
+            if st.button("Mostrar histórico"):
+                with st.spinner("Obteniendo histórico Q4..."):
+                    df_hist = obtener_ingresos(cod_ent)
+                    df_hist.columns = df_hist.columns.str.strip()
+                    df_hist = df_hist[df_hist['ambito_nombre'].str.upper() == 'INGRESOS']
+                    df_hist['periodo_dt'] = pd.to_datetime(df_hist['periodo'], format='%Y%m%d', errors='coerce')
+                    df_hist['year']      = df_hist['periodo_dt'].dt.year
+                    df_hist['md']        = df_hist['periodo_dt'].dt.strftime('%m%d')
+        
+                    registros = []
+                    current = df_hist['year'].max()
+                    for yr, grp in df_hist.groupby('year'):
+                        if yr != current:
+                            q4 = grp[grp['md']=='1201']
+                            if not q4.empty:
+                                registros.append(q4.loc[q4['periodo_dt'].idxmax()])
+                        else:
+                            registros.append(grp.loc[grp['periodo_dt'].idxmax()])
+        
+                    df_sel = pd.DataFrame(registros).sort_values('periodo_dt')
+                    df_sel.columns = df_sel.columns.str.strip()
+        
+                    if 'nom_detalle_sectorial' not in df_sel:
+                        st.error("No se encontró la columna 'nom_detalle_sectorial' en los datos históricos.")
                     else:
-                        registros.append(grp.loc[grp['periodo_dt'].idxmax()])
-    
-                df_sel = pd.DataFrame(registros).sort_values('periodo_dt')
-                df_sel.columns = df_sel.columns.str.strip()
-    
-                if 'nom_detalle_sectorial' not in df_sel:
-                    st.error("No se encontró la columna 'nom_detalle_sectorial' en los datos históricos.")
-                else:
-                    # Ingresos nominales en millones
-                    df_sel['Ingresos Nominales'] = pd.to_numeric(df_sel['nom_detalle_sectorial'], errors='coerce') / 1e6
-    
-                    # IPC y serie real
-                    ipc_map = {2021:111.41, 2022:126.03, 2023:137.09, 2024:144.88}
-                    df_chart = df_sel.set_index('periodo_dt').reset_index().rename(columns={'periodo_dt':'Periodo'})
-                    df_chart['Año'] = df_chart['Periodo'].dt.year
-                    df_chart['ipc_base2018'] = df_chart['Año'].map(ipc_map)
-                    df_chart['Ingresos Reales'] = df_chart['Ingresos Nominales'] / df_chart['ipc_base2018'] * 100
-    
-                    # Convertir a formato largo
-                    df_long = df_chart.melt(
-                        id_vars=['Periodo'],
-                        value_vars=['Ingresos Nominales','Ingresos Reales'],
-                        var_name='Tipo de ingreso',
-                        value_name='Monto'
-                    )
-    
-                    # Dominio Y: mínimo de reales y máximo global
-                    min_real = df_chart['Ingresos Reales'].min()
-                    max_all  = df_long['Monto'].max()
-                    dominio  = [min_real * 0.9, max_all * 1.02]
-    
-                    # Gráfico con leyenda y colores distintos
-                    chart = alt.Chart(df_long).mark_line(point=True).encode(
-                        x=alt.X('Periodo:T', title='Periodo', axis=alt.Axis(format='%Y', tickCount='year')),
-                        y=alt.Y('Monto:Q',
-                                title='Ingresos Q4 (millones de pesos)',
-                                axis=alt.Axis(format='$,.0f'),
-                                scale=alt.Scale(domain=dominio, nice=False)),
-                        color=alt.Color('Tipo de ingreso:N', title='Serie',
-                                        scale=alt.Scale(range=['#1f77b4','#ff7f0e'])),
-                        tooltip=[
-                            alt.Tooltip('Periodo:T', title='Periodo'),
-                            alt.Tooltip('Tipo de ingreso:N', title='Tipo'),
-                            alt.Tooltip('Monto:Q', title='Monto', format='$,.0f')
-                        ]
-                    ).properties(width=600, height=300)
-    
-                    st.subheader("4. Histórico de INGRESOS Nominales vs Reales (Q4) (millones de pesos)")
-                    st.altair_chart(chart, use_container_width=True)
-    
-                    # Descargar todas las tablas
-                    buf_all = io.BytesIO()
-                    with pd.ExcelWriter(buf_all, engine="openpyxl") as writer:
-                        st.session_state["df_ingresos"].to_excel(writer, index=False, sheet_name="Datos Brutos")
-                        resumen.to_excel(writer, index=False, sheet_name="Resumen")
-                        df_chart[['Periodo','Ingresos Nominales','Ingresos Reales']].to_excel(
-                            writer, index=False, sheet_name="Histórico Q4"
+                        # Ingresos nominales en millones
+                        df_sel['Ingresos Nominales'] = pd.to_numeric(df_sel['nom_detalle_sectorial'], errors='coerce') / 1e6
+        
+                        # IPC y serie real
+                        ipc_map = {2021:111.41, 2022:126.03, 2023:137.09, 2024:144.88}
+                        df_chart = df_sel.set_index('periodo_dt').reset_index().rename(columns={'periodo_dt':'Periodo'})
+                        df_chart['Año'] = df_chart['Periodo'].dt.year
+                        df_chart['ipc_base2018'] = df_chart['Año'].map(ipc_map)
+                        df_chart['Ingresos Reales'] = df_chart['Ingresos Nominales'] / df_chart['ipc_base2018'] * 100
+        
+                        # Convertir a formato largo
+                        df_long = df_chart.melt(
+                            id_vars=['Periodo'],
+                            value_vars=['Ingresos Nominales','Ingresos Reales'],
+                            var_name='Tipo de ingreso',
+                            value_name='Monto'
                         )
-                    buf_all.seek(0)
-                    st.download_button(
-                        "⬇️ Descargar todas las tablas en Excel",
-                        data=buf_all,
-                        file_name="ingresos_completo.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
+        
+                        # Dominio Y: mínimo de reales y máximo global
+                        min_real = df_chart['Ingresos Reales'].min()
+                        max_all  = df_long['Monto'].max()
+                        dominio  = [min_real * 0.9, max_all * 1.02]
+        
+                        # Gráfico con leyenda y colores distintos
+                        chart = alt.Chart(df_long).mark_line(point=True).encode(
+                            x=alt.X('Periodo:T', title='Periodo', axis=alt.Axis(format='%Y', tickCount='year')),
+                            y=alt.Y('Monto:Q',
+                                    title='Ingresos Q4 (millones de pesos)',
+                                    axis=alt.Axis(format='$,.0f'),
+                                    scale=alt.Scale(domain=dominio, nice=False)),
+                            color=alt.Color('Tipo de ingreso:N', title='Serie',
+                                            scale=alt.Scale(range=['#1f77b4','#ff7f0e'])),
+                            tooltip=[
+                                alt.Tooltip('Periodo:T', title='Periodo'),
+                                alt.Tooltip('Tipo de ingreso:N', title='Tipo'),
+                                alt.Tooltip('Monto:Q', title='Monto', format='$,.0f')
+                            ]
+                        ).properties(width=600, height=300)
+        
+                        st.subheader("4. Histórico de INGRESOS Nominales vs Reales (Q4) (millones de pesos)")
+                        st.altair_chart(chart, use_container_width=True)
+        
+                        # Descargar todas las tablas
+                        buf_all = io.BytesIO()
+                        with pd.ExcelWriter(buf_all, engine="openpyxl") as writer:
+                            st.session_state["df_ingresos"].to_excel(writer, index=False, sheet_name="Datos Brutos")
+                            resumen.to_excel(writer, index=False, sheet_name="Resumen")
+                            df_chart[['Periodo','Ingresos Nominales','Ingresos Reales']].to_excel(
+                                writer, index=False, sheet_name="Histórico Q4"
+                            )
+                        buf_all.seek(0)
+                        st.download_button(
+                            "⬇️ Descargar todas las tablas en Excel",
+                            data=buf_all,
+                            file_name="ingresos_completo.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
                 
 elif pagina == "Ejecución de Gastos":
     st.title("💸 Ejecución de Gastos")
