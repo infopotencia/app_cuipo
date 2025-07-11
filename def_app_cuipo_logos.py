@@ -56,12 +56,12 @@ def obtener_ingresos(codigo_entidad, periodo=None):
 def obtener_datos_gastos(codigo_entidad, periodo):
     cols = [
         "periodo", "codigo_entidad", "nombre_entidad",
-        "cuenta", "nombre_cuenta", "compromisos", "pagos", "obligaciones",
-        "nom_vigencia_del_gasto"
+        "cuenta", "nombre_cuenta", "compromisos", "pagos", "obligaciones"
     ]
     where = (
         f"codigo_entidad='{codigo_entidad}' AND "
-        f"periodo='{periodo}' "
+        f"periodo='{periodo}' AND "
+        f"nom_vigencia_del_gasto='VIGENCIA ACTUAL'"
     )
     params = {"$select": ",".join(cols), "$where": where, "$limit": 10000}
     r = requests.get("https://www.datos.gov.co/resource/4f7r-epif.csv", params=params, timeout=30)
@@ -271,11 +271,12 @@ elif pagina == "Ejecución de Gastos":
             "2.3.5.02", "2.3.6.01", "2.3.6.02", "2.3.6.03", "2.3.7.01", "2.3.7.05",
             "2.3.7.06", "2.3.8"
         ]
+        if st.button("Filtrar por códigos"):
+            df_codes = df_raw[df_raw["cuenta"].isin(cuentas_filtro)]
 
             # Resumen general sin GASTOS
             resumen = (
                 df_codes
-                .filterby("nom_vigencia_del_gasto" = 'VIGENCIA ACTUAL')
                 .groupby(["cuenta","nombre_cuenta"], as_index=False)[["compromisos","pagos","obligaciones"]]
                 .sum()
             )
