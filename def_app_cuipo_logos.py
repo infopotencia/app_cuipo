@@ -230,11 +230,14 @@ elif pagina == "Ejecución de Gastos":
     periodo_label_g = st.selectbox("Selecciona el periodo", df_per["periodo_label"].tolist())
     periodo = str(df_per.loc[df_per["periodo_label"] == periodo_label_g, "periodo"].iloc[0])
 
+    # Botón para cargar datos brutos
     if st.button("Cargar datos"):
         st.session_state["df_gastos"] = obtener_datos_gastos(codigo_ent, periodo)
 
+    # Mostrar datos y resumen automáticamente
     if "df_gastos" in st.session_state:
         df_raw = st.session_state["df_gastos"]
+        
         st.write("### Datos brutos")
         st.dataframe(
             df_raw.style.format({
@@ -244,6 +247,7 @@ elif pagina == "Ejecución de Gastos":
             }), use_container_width=True
         )
 
+        # Filtrado por lista de códigos
         cuentas_filtro = [
             "2", "2.1.1", "2.1.2.01.01.001", "2.1.2.01.01.003", "2.1.2.01.01.004",
             "2.1.2.01.01.005", "2.1.2.01.02", "2.1.2.01.03", "2.1.2.02.01",
@@ -270,51 +274,51 @@ elif pagina == "Ejecución de Gastos":
             "2.3.5.02", "2.3.6.01", "2.3.6.02", "2.3.6.03", "2.3.7.01", "2.3.7.05",
             "2.3.7.06", "2.3.8"
         ]
-        if st.button("Filtrar por códigos"):
-            df_codes = df_raw[df_raw["cuenta"].isin(cuentas_filtro)]
+        df_codes = df_raw[df_raw["cuenta"].isin(cuentas_filtro)]
 
-            # Resumen general sin GASTOS
-            resumen = (
-                df_codes
-                .groupby(["cuenta","nombre_cuenta"], as_index=False)[["compromisos","pagos","obligaciones"]]
-                .sum()
-            )
-            resumen = resumen[resumen["nombre_cuenta"].str.upper() != "GASTOS"]
+        # Resumen general sin GASTOS
+        resumen = (
+            df_codes
+            .groupby(["cuenta", "nombre_cuenta"], as_index=False)[["compromisos", "pagos", "obligaciones"]]
+            .sum()
+        )
+        resumen = resumen[resumen["nombre_cuenta"].str.upper() != "GASTOS"]
 
-            # Añadir fila TOTAL
-            tot = resumen[["compromisos","pagos","obligaciones"]].sum()
-            total_row = {
-                "cuenta": "",
-                "nombre_cuenta": "TOTAL",
-                "compromisos": tot["compromisos"],
-                "pagos":      tot["pagos"],
-                "obligaciones": tot["obligaciones"]
-            }
-            resumen = pd.concat([resumen, pd.DataFrame([total_row])], ignore_index=True)
+        # Añadir fila TOTAL
+        tot = resumen[["compromisos", "pagos", "obligaciones"]].sum()
+        total_row = {
+            "cuenta": "",
+            "nombre_cuenta": "TOTAL",
+            "compromisos": tot["compromisos"],
+            "pagos": tot["pagos"],
+            "obligaciones": tot["obligaciones"]
+        }
+        resumen = pd.concat([resumen, pd.DataFrame([total_row])], ignore_index=True)
 
-            st.write("### Resumen de compromisos, pagos y obligaciones por cuenta")
-            st.dataframe(
-                resumen.style.format({
-                    "compromisos": format_cop,
-                    "pagos": format_cop,
-                    "obligaciones": format_cop
-                }), use_container_width=True
-            )
+        st.write("### Resumen de compromisos, pagos y obligaciones por cuenta")
+        st.dataframe(
+            resumen.style.format({
+                "compromisos": format_cop,
+                "pagos": format_cop,
+                "obligaciones": format_cop
+            }), use_container_width=True
+        )
 
-            # Mini-tabla solo GASTOS
-            gastos = (
-                df_codes[df_codes["nombre_cuenta"].str.upper() == "GASTOS"]
-                .groupby(["cuenta","nombre_cuenta"], as_index=False)[["compromisos","pagos","obligaciones"]]
-                .sum()
-            )
-            st.write("### Detalle GASTOS")
-            st.dataframe(
-                gastos.style.format({
-                    "compromisos": format_cop,
-                    "pagos": format_cop,
-                    "obligaciones": format_cop
-                }), use_container_width=True
-            )
+        # Detalle sólo GASTOS
+        gastos = (
+            df_codes[df_codes["nombre_cuenta"].str.upper() == "GASTOS"]
+            .groupby(["cuenta", "nombre_cuenta"], as_index=False)[["compromisos", "pagos", "obligaciones"]]
+            .sum()
+        )
+        st.write("### Detalle GASTOS")
+        st.dataframe(
+            gastos.style.format({
+                "compromisos": format_cop,
+                "pagos": format_cop,
+                "obligaciones": format_cop
+            }), use_container_width=True
+        )
 
-            # Métrica total sin GASTOS
-            st.metric("Total compromisos (sin GASTOS)", format_cop(tot["compromisos"]))
+        # Métrica total sin GASTOS
+        st.metric("Total compromisos (sin GASTOS)", format_cop(tot["compromisos"]))
+
