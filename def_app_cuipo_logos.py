@@ -155,7 +155,8 @@ if pagina == "Programación de Ingresos":
             "1.2.06", "1.2.07"
         ]
         df_filtrado = df_i[df_i.get("ambito_codigo", "").isin(codigos_ambito)]
-        drop_cols = [c for c in ['cuenta', 'presupuesto_inicial', 'presupuesto_definitivo'] if c in df_filtrado.columns]
+        drop_cols = [c for c in ['cuenta', 'presupuesto_inicial', 'presupuesto_definitivo']
+                     if c in df_filtrado.columns]
         resumen = df_filtrado.drop(columns=drop_cols)
         resumen = resumen.rename(columns={
             'cod_detalle_sectorial': 'Presupuesto Inicial',
@@ -170,45 +171,82 @@ if pagina == "Programación de Ingresos":
         st.dataframe(styled, use_container_width=True)
 
         if 'ambito_nombre' in resumen.columns and 'Presupuesto Definitivo' in resumen.columns:
-            total_ing = resumen.loc[resumen['ambito_nombre'].str.upper() == 'INGRESOS', 'Presupuesto Definitivo'].sum()
+            total_ing = resumen.loc[
+                resumen['ambito_nombre'].str.upper() == 'INGRESOS',
+                'Presupuesto Definitivo'
+            ].sum()
             st.subheader("3. Total Presupuesto Definitivo (INGRESOS)")
             st.metric("", format_cop(total_ing))
 
-       if st.button("Mostrar histórico"):
+    if st.button("Mostrar histórico"):
         with st.spinner("Obteniendo histórico Q4..."):
-        # ... tu código de carga y preparación de df_sel ...
-        df_sel = pd.DataFrame(registros).sort_values('periodo_dt')
-        df_sel.columns = df_sel.columns.str.strip()
+            df_hist = obtener_ingresos(cod_ent)
+            df_hist.columns = df_hist.columns.str.strip()
+            df_hist = df_hist[
+                df_hist.get('ambito_nombre', '').str.upper() == 'INGRESOS'
+            ]
+            df_hist['periodo_dt'] = pd.to_datetime(
+                df_hist['periodo'], format='%Y%m%d', errors='coerce'
+            )
+            df_hist['year'] = df_hist['periodo_dt'].dt.year
+            df_hist['md'] = df_hist['periodo_dt'].dt.strftime('%m%d')
 
-        if 'nom_detalle_sectorial' in df_sel.columns:
-            df_sel['nom_detalle_sectorial'] = pd.to_numeric(df_sel['nom_detalle_sectorial'], errors='coerce')
-            df_chart = df_sel.reset_index()
+            current_year = df_hist['year'].max()
+            registros = []
+            for yr, grp in df_hist.groupby('year'):
+                if yr != current_year:
+                    q4 = grp[grp['md'] == '1201']
+                    if not q4.empty:
+                        registros.append(q4.loc[q4['periodo_dt'].idxmax()])
+                else:
+                    registros.append(grp.loc[grp['periodo_dt'].idxmax()])
 
-            # 1) Calcular valores para el dominio de y:
-            inicial = df_chart['nom_detalle_sectorial'].iloc[0]
-            maximo = df_chart['nom_detalle_sectorial'].max()
-            dominio_min = inicial * 0.9     # 10% por debajo del valor inicial
-            dominio_max = maximo * 1.02     # 2% por encima del máximo
+            df_sel = pd.DataFrame(registros).sort_values('periodo_dt')
+            df_sel.columns = df_sel.columns.str.strip()
 
-            st.subheader("4. Histórico de INGRESOS (Q4)")
-            chart = alt.Chart(df_chart).mark_line(point=True).encode(
-                x=alt.X('periodo_dt:T', title='Periodo',
-                        axis=alt.Axis(format='%Y', tickCount='year')),
-                y=alt.Y(
-                    'nom_detalle_sectorial:Q',
-                    title='Ingresos Q4',
-                    axis=alt.Axis(format='$,.0f'),
-                    scale=alt.Scale(domain=[dominio_min, dominio_max], nice=False)
-                ),
-                tooltip=[
-                    alt.Tooltip('periodo_dt:T', title='Periodo'),
-                    alt.Tooltip('nom_detalle_sectorial:Q', title='Ingresos Q4', format='$,.0f')
-                ]
-            ).properties(width=600, height=300)
+            if 'nom_detalle_sectorial' in df_sel.columns:
+                df_sel['nom_detalle_sectorial'] = pd.to_numeric(
+                    df_sel['nom_detalle_sectorial'], errors='coerce'
+                )
+                df_sel = df_sel.set_index('periodo_dt')
+                df_chart = df_sel.reset_index()
 
-            st.altair_chart(chart, use_container_width=True)
-        else:
-            st.error("No se encontró la columna 'nom_detalle_sectorial' en los datos históricos.")
+                # Calcular dominio de Y según valor inicial y máximo
+                inicial = df_chart['nom_detalle_sectorial'].iloc[0]
+                maximo = df_chart['nom_detalle_sectorial'].max()
+                dominio_min = inicial * 0.9
+                dominio_max = maximo * 1.02
+
+                st.subheader("4. Histórico de INGRESOS (Q4)")
+                chart = alt.Chart(df_chart).mark_line(point=True).encode(
+                    x=alt.X(
+                        'periodo_dt:T',
+                        title='Periodo',
+                        axis=alt.Axis(format='%Y', tickCount='year')
+                    ),
+                    y=alt.Y(
+                        'nom_detalle_sectorial:Q',
+                        title='Ingresos Q4',
+                        axis=alt.Axis(format='$,.0f'),
+                        scale=alt.Scale(domain=[dominio_min, dominio_max], nice=False)
+                    ),
+                    tooltip=[
+                        alt.Tooltip('periodo_dt:T', title='Periodo'),
+                        alt.Tooltip(
+                            'nom_detalle_sectorial:Q',
+                            title='Ingresos Q4',
+                            format='$,.0f'
+                        )
+                    ]
+                ).properties(width=600, height=300)
+
+                st.altair_chart(chart, use_container_width=True)
+            else:
+                st.error(
+                    "No se encontró la columna 'nom_detalle_sectorial' "
+                    "en los datos históricos."
+                )
+
 
 
 elif pagina == "Ejecución de Gastos":
