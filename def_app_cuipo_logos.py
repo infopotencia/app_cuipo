@@ -203,19 +203,30 @@ if pagina == "Programación de Ingresos":
         st.metric("", format_cop(total_ing))
 
     # --- Histórico Q4 con línea adicional de ingresos reales ---
+   ChatGPT said:
+
+Thought for 12 seconds
+Reemplaza todo el bloque de “Mostrar histórico” por este código; verás que ahora generamos dos series (“Ingresos Nominales” y “Ingresos Reales”), deremojamos en formato largo, y usamos color para diferenciar con leyenda y colores distintos:
+
+python
+Copy
+Edit
+    # Botón para mostrar histórico con línea nominal vs real
     if st.button("Mostrar histórico"):
         with st.spinner("Obteniendo histórico Q4..."):
+            # 1) Traer datos y filtrar solo INGRESOS
             df_hist = obtener_ingresos(cod_ent)
             df_hist.columns = df_hist.columns.str.strip()
-            df_hist = df_hist[df_hist.get('ambito_nombre','').str.upper()=='INGRESOS']
+            df_hist = df_hist[df_hist['ambito_nombre'].str.upper() == 'INGRESOS']
             df_hist['periodo_dt'] = pd.to_datetime(df_hist['periodo'], format='%Y%m%d', errors='coerce')
-            df_hist['year'] = df_hist['periodo_dt'].dt.year
-            df_hist['md'] = df_hist['periodo_dt'].dt.strftime('%m%d')
+            df_hist['year']      = df_hist['periodo_dt'].dt.year
+            df_hist['md']        = df_hist['periodo_dt'].dt.strftime('%m%d')
 
+            # 2) Seleccionar último Q4 de cada año
             registros = []
-            cur = df_hist['year'].max()
+            current = df_hist['year'].max()
             for yr, grp in df_hist.groupby('year'):
-                if yr != cur:
+                if yr != current:
                     q4 = grp[grp['md']=='1201']
                     if not q4.empty:
                         registros.append(q4.loc[q4['periodo_dt'].idxmax()])
@@ -225,53 +236,59 @@ if pagina == "Programación de Ingresos":
             df_sel = pd.DataFrame(registros).sort_values('periodo_dt')
             df_sel.columns = df_sel.columns.str.strip()
 
-            if 'nom_detalle_sectorial' in df_sel:
-                # Nominal en millones
-                df_sel['nom_detalle_sectorial'] = pd.to_numeric(df_sel['nom_detalle_sectorial'], errors='coerce')/1e6
-                df_sel = df_sel.set_index('periodo_dt')
-                df_chart = df_sel.reset_index().rename(columns={
-                    'nom_detalle_sectorial': 'Ingresos Nominales'
-                })
+            if 'nom_detalle_sectorial' not in df_sel:
+                st.error("No se encontró la columna 'nom_detalle_sectorial' en los datos históricos.")
+                return
 
-                # Crear IPC base 2018 según año
-                ipc_map = {2021:111.41, 2022:126.03, 2023:137.09, 2024:144.88}
-                df_chart['Año'] = df_chart['periodo_dt'].dt.year
-                df_chart['ipc_base2018'] = df_chart['Año'].map(ipc_map)
+            # 3) Crear series en millones
+            df_sel['Ingresos Nominales'] = (
+                pd.to_numeric(df_sel['nom_detalle_sectorial'], errors='coerce') / 1e6
+            )
 
-                # Ingresos reales en constantes 2018
-                df_chart['Ingresos Reales'] = df_chart['Ingresos Nominales'] / df_chart['ipc_base2018'] * 100
+            # 4) Calcular IPC base 2018 según año y serie real
+            ipc_map = {2021:111.41, 2022:126.03, 2023:137.09, 2024:144.88}
+            df_chart = df_sel.set_index('periodo_dt').reset_index().rename(columns={'periodo_dt':'Periodo'})
+            df_chart['Año'] = df_chart['Periodo'].dt.year
+            df_chart['ipc_base2018'] = df_chart['Año'].map(ipc_map)
+            df_chart['Ingresos Reales'] = df_chart['Ingresos Nominales'] / df_chart['ipc_base2018'] * 100
 
-                # Calcular dominio que cubra ambas series
-                init_nom = df_chart['Ingresos Nominales'].iloc[0]
-                init_real = df_chart['Ingresos Reales'].iloc[0]
-                dominio_min = min(init_nom, init_real) * 0.9
-                dominio_max = max(df_chart[['Ingresos Nominales','Ingresos Reales']].max()) * 1.02
+            # 5) Deremojar a “long form”
+            df_long = df_chart.melt(
+                id_vars=['Periodo'],
+                value_vars=['Ingresos Nominales','Ingresos Reales'],
+                var_name='Tipo de ingreso',
+                value_name='Monto'
+            )
 
-                # Convertir a formato largo para Altair
-                df_long = df_chart.melt(
-                    id_vars=['periodo_dt'],
-                    value_vars=['Ingresos Nominales','Ingresos Reales'],
-                    var_name='Tipo Ingreso',
-                    value_name='Monto'
-                )
+            # 6) Dominio Y unificado
+            min_init = min(
+                df_long[df_long['Tipo de ingreso']=='Ingresos Nominales']['Monto'].iloc[0],
+                df_long[df_long['Tipo de ingreso']=='Ingresos Reales']['Monto'].iloc[0]
+            )
+            max_all = df_long['Monto'].max()
+            dominio = [min_init * 0.9, max_all * 1.02]
 
-                st.subheader("4. Histórico de INGRESOS Nominales vs Reales (Q4) (millones de pesos)")
-                chart = alt.Chart(df_long).mark_line(point=True).encode(
-                    x=alt.X('periodo_dt:T', title='Periodo',
-                            axis=alt.Axis(format='%Y', tickCount='year')),
-                    y=alt.Y('Monto:Q',
-                            title='Ingresos (millones de pesos)',
-                            axis=alt.Axis(format='$,.0f'),
-                            scale=alt.Scale(domain=[dominio_min, dominio_max], nice=False)),
-                    color=alt.Color('Tipo Ingreso:N', title='Serie'),
-                    tooltip=[
-                        alt.Tooltip('periodo_dt:T', title='Periodo'),
-                        alt.Tooltip('Tipo Ingreso:N', title='Tipo'),
-                        alt.Tooltip('Monto:Q', title='Monto', format='$,.0f')
-                    ]
-                ).properties(width=600, height=300)
+            # 7) Plot con altair, dos líneas, leyenda y colores distintos
+            chart = alt.Chart(df_long).mark_line(point=True).encode(
+                x=alt.X('Periodo:T', title='Periodo', axis=alt.Axis(format='%Y', tickCount='year')),
+                y=alt.Y('Monto:Q',
+                        title='Ingresos Q4 (millones de pesos)',
+                        axis=alt.Axis(format='$,.0f'),
+                        scale=alt.Scale(domain=dominio, nice=False)),
+                color=alt.Color(
+                    'Tipo de ingreso:N',
+                    title='Serie',
+                    scale=alt.Scale(range=['#1f77b4','#ff7f0e'])
+                ),
+                tooltip=[
+                    alt.Tooltip('Periodo:T', title='Periodo'),
+                    alt.Tooltip('Tipo de ingreso:N', title='Tipo'),
+                    alt.Tooltip('Monto:Q', title='Monto', format='$,.0f')
+                ]
+            ).properties(width=600, height=300)
 
-                st.altair_chart(chart, use_container_width=True)
+            st.subheader("4. Histórico de INGRESOS Nominales vs Reales (Q4) (millones de pesos)")
+            st.altair_chart(chart, use_container_width=True)
 
                 # Descarga todas las tablas
                 buf_all = io.BytesIO()
