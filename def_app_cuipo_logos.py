@@ -140,10 +140,12 @@ if pagina == "Programación de Ingresos":
     per_lab = st.selectbox("Período puntual:", df_per["periodo_label"].tolist())
     per = str(df_per.loc[df_per["periodo_label"] == per_lab, "periodo"].iloc[0])
 
+    # Botón para cargar ingresos
     if st.button("Cargar ingresos"):
         with st.spinner("Cargando datos..."):
             st.session_state["df_ingresos"] = obtener_ingresos(cod_ent, per)
 
+    # Mostrar tabla de resumen
     if "df_ingresos" in st.session_state:
         df_i = st.session_state["df_ingresos"]
         st.subheader("1. Datos brutos de ingresos")
@@ -162,9 +164,12 @@ if pagina == "Programación de Ingresos":
             'nom_detalle_sectorial': 'Presupuesto Definitivo'
         })
 
-        # Dividir valores entre un millón
-        resumen[['Presupuesto Inicial', 'Presupuesto Definitivo']] = (
-            resumen[['Presupuesto Inicial', 'Presupuesto Definitivo']] / 1e6
+        # Convertir a numérico y dividir entre un millón
+        resumen['Presupuesto Inicial'] = (
+            pd.to_numeric(resumen['Presupuesto Inicial'], errors='coerce') / 1e6
+        )
+        resumen['Presupuesto Definitivo'] = (
+            pd.to_numeric(resumen['Presupuesto Definitivo'], errors='coerce') / 1e6
         )
 
         st.subheader("2. Resumen de ingresos filtrados (millones de pesos)")
@@ -180,12 +185,10 @@ if pagina == "Programación de Ingresos":
                 'Presupuesto Definitivo'
             ].sum()
 
-            # Dividir total entre un millón
-            total_ing = total_ing / 1e6
-
             st.subheader("3. Total Presupuesto Definitivo (INGRESOS) (millones de pesos)")
             st.metric("", format_cop(total_ing))
 
+    # Botón para mostrar histórico
     if st.button("Mostrar histórico"):
         with st.spinner("Obteniendo histórico Q4..."):
             df_hist = obtener_ingresos(cod_ent)
@@ -213,13 +216,10 @@ if pagina == "Programación de Ingresos":
             df_sel.columns = df_sel.columns.str.strip()
 
             if 'nom_detalle_sectorial' in df_sel.columns:
-                df_sel['nom_detalle_sectorial'] = pd.to_numeric(
-                    df_sel['nom_detalle_sectorial'], errors='coerce'
+                # Convertir a numérico y dividir entre un millón
+                df_sel['nom_detalle_sectorial'] = (
+                    pd.to_numeric(df_sel['nom_detalle_sectorial'], errors='coerce') / 1e6
                 )
-
-                # Dividir histórico entre un millón
-                df_sel['nom_detalle_sectorial'] = df_sel['nom_detalle_sectorial'] / 1e6
-
                 df_sel = df_sel.set_index('periodo_dt')
                 df_chart = df_sel.reset_index()
 
@@ -258,7 +258,6 @@ if pagina == "Programación de Ingresos":
                     "No se encontró la columna 'nom_detalle_sectorial' "
                     "en los datos históricos."
                 )
-
 
 
 elif pagina == "Ejecución de Gastos":
