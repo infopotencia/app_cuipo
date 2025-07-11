@@ -237,7 +237,7 @@ elif pagina == "Ejecución de Gastos":
     if "df_gastos" in st.session_state:
         df_raw = st.session_state["df_gastos"]
 
-        # Mostrar datos brutos
+        # ===== DATOS BRUTOS =====
         st.write("### Datos brutos")
         st.dataframe(
             df_raw.style.format({
@@ -246,7 +246,7 @@ elif pagina == "Ejecución de Gastos":
                 "obligaciones": format_cop
             }), use_container_width=True
         )
-        # Botón para descargar datos brutos
+        # Descargar Datos brutos
         buf_raw = io.BytesIO()
         with pd.ExcelWriter(buf_raw) as writer:
             df_raw.to_excel(writer, sheet_name='DatosBrutos', index=False)
@@ -306,8 +306,10 @@ elif pagina == "Ejecución de Gastos":
             'pagos':'Pagos',
             'obligaciones':'Obligaciones'
         })
+        # Dividir valores entre 1 millón
+        resumen_disp[['Compromisos','Pagos','Obligaciones']] = resumen_disp[['Compromisos','Pagos','Obligaciones']] / 1_000_000
         resumen_disp[['Compromisos','Pagos','Obligaciones']] = resumen_disp[['Compromisos','Pagos','Obligaciones']].applymap(format_cop)
-        st.write("### Resumen de compromisos, pagos y obligaciones por cuenta")
+        st.write("### Resumen de compromisos, pagos y obligaciones por cuenta (en millones de pesos)")
         st.markdown(resumen_disp.to_html(index=False), unsafe_allow_html=True)
 
         # ===== DETALLE GASTOS =====
@@ -321,8 +323,10 @@ elif pagina == "Ejecución de Gastos":
             'pagos':'Pagos',
             'obligaciones':'Obligaciones'
         })
+        # Dividir valores entre 1 millón
+        gastos_disp[['Compromisos','Pagos','Obligaciones']] = gastos_disp[['Compromisos','Pagos','Obligaciones']] / 1_000_000
         gastos_disp[['Compromisos','Pagos','Obligaciones']] = gastos_disp[['Compromisos','Pagos','Obligaciones']].applymap(format_cop)
-        st.write("### Detalle GASTOS")
+        st.write("### Detalle GASTOS (en millones de pesos)")
         st.markdown(gastos_disp.to_html(index=False), unsafe_allow_html=True)
 
         # ===== CONSOLIDADO =====
@@ -341,12 +345,14 @@ elif pagina == "Ejecución de Gastos":
             'pagos':'Pagos',
             'obligaciones':'Obligaciones'
         })
+        # Dividir valores entre 1 millón
+        consolidado_disp[['Compromisos','Pagos','Obligaciones']] = consolidado_disp[['Compromisos','Pagos','Obligaciones']] / 1_000_000
         consolidado_disp[['Compromisos','Pagos','Obligaciones']] = consolidado_disp[['Compromisos','Pagos','Obligaciones']].applymap(format_cop)
-        st.write("### Consolidado de GASTOS por tipo de vigencia")
+        st.write("### Consolidado de GASTOS por tipo de vigencia (en millones de pesos)")
         st.markdown(consolidado_disp.to_html(index=False), unsafe_allow_html=True)
 
         # Métrica total global
-        st.metric("Total compromisos para todas las vigencias", format_cop(tot_con["compromisos"]))
+        st.metric("Total compromisos para todas las vigencias", format_cop(tot_con["compromisos"]/1_000_000))
 
         # Botón descargar todo debajo de la métrica
         buf_all = io.BytesIO()
@@ -361,6 +367,7 @@ elif pagina == "Ejecución de Gastos":
             file_name='ejecucion_gastos_completo.xlsx',
             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
+
 
 
 
