@@ -274,9 +274,9 @@ elif pagina == "Ejecución de Gastos":
             "2.3.5.02", "2.3.6.01", "2.3.6.02", "2.3.6.03", "2.3.7.01", "2.3.7.05",
             "2.3.7.06", "2.3.8"
         ]
-        df_filtered = df_raw[
+       df_filtered = df_raw[
             df_raw["cuenta"].isin(cuentas_filtro) &
-            (df_raw["nom_vigencia_del_gasto"].str.upper() == "VIGENCIA ACTUAL")
+            df_raw["nom_vigencia_del_gasto"].str.strip().str.upper().eq("VIGENCIA ACTUAL")
         ]
 
         # Resumen general sin GASTOS
