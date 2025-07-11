@@ -202,15 +202,7 @@ if pagina == "Programación de Ingresos":
         st.subheader("3. Total Presupuesto Definitivo (INGRESOS) (millones de pesos)")
         st.metric("", format_cop(total_ing))
 
-    # --- Histórico Q4 con línea adicional de ingresos reales ---
-   ChatGPT said:
-
-Thought for 12 seconds
-Reemplaza todo el bloque de “Mostrar histórico” por este código; verás que ahora generamos dos series (“Ingresos Nominales” y “Ingresos Reales”), deremojamos en formato largo, y usamos color para diferenciar con leyenda y colores distintos:
-
-python
-Copy
-Edit
+  
     # Botón para mostrar histórico con línea nominal vs real
     if st.button("Mostrar histórico"):
         with st.spinner("Obteniendo histórico Q4..."):
