@@ -444,26 +444,28 @@ elif pagina == "Comparativa de Ingresos":
         "Municipio principal:", df_muns_dep["nombre_entidad"].tolist()
     )
 
-    # 2) Modo de comparación
+    # 2) Modo de comparación (a nivel nacional)
     modo = st.radio(
         "Seleccionar municipios comparativos por:",
         ["Misma categoría", "4 más cercanos en población"]
     )
     if modo == "Misma categoría":
-        cat = df_muns_dep.loc[
-            df_muns_dep["nombre_entidad"] == municipio_principal, "categoria"
+        cat = df_mun.loc[
+            df_mun["nombre_entidad"] == municipio_principal, "categoria"
         ].iloc[0]
-        candidatos = df_muns_dep[df_muns_dep["categoria"] == cat]["nombre_entidad"].tolist()
-        candidatos = [m for m in candidatos if m != municipio_principal]
+        candidatos = df_mun[df_mun["categoria"] == cat]["nombre_entidad"].tolist()
+        candidatos.remove(municipio_principal)
     else:
-        pop0 = df_muns_dep.loc[
-            df_muns_dep["nombre_entidad"] == municipio_principal, "poblacion"
+        pop0 = df_mun.loc[
+            df_mun["nombre_entidad"] == municipio_principal, "poblacion"
         ].iloc[0]
-        df_tmp = df_muns_dep.copy()
+        df_tmp = df_mun.copy()
         df_tmp["diff"] = (df_tmp["poblacion"] - pop0).abs()
-        candidatos = df_tmp[
-            df_tmp["nombre_entidad"] != municipio_principal
-        ].nsmallest(4, "diff")["nombre_entidad"].tolist()
+        candidatos = (
+            df_tmp[df_tmp["nombre_entidad"] != municipio_principal]
+            .nsmallest(4, "diff")["nombre_entidad"]
+            .tolist()
+        )
 
     municipios_comp = st.multiselect(
         "Municipios comparación:", options=candidatos, default=candidatos
@@ -471,9 +473,9 @@ elif pagina == "Comparativa de Ingresos":
 
     # 3) Período puntual
     per_lab_cmp = st.selectbox("Período puntual:", df_per["periodo_label"].tolist())
-    periodo_cmp = str(
-        df_per.loc[df_per["periodo_label"] == per_lab_cmp, "periodo"].iloc[0]
-    )
+    periodo_cmp = str(df_per.loc[
+        df_per["periodo_label"] == per_lab_cmp, "periodo"
+    ].iloc[0])
 
     # 4) Cuenta de ingreso
     cuenta = st.selectbox(
@@ -487,16 +489,22 @@ elif pagina == "Comparativa de Ingresos":
     if st.button("Comparar ingresos"):
         resultados = []
         for mun in [municipio_principal] + municipios_comp:
-            cod_ent_mun = str(
-                df_mun.loc[df_mun["nombre_entidad"] == mun, "codigo_entidad"].iloc[0]
-            )
+            cod_ent_mun = str(df_mun.loc[
+                df_mun["nombre_entidad"] == mun, "codigo_entidad"
+            ].iloc[0])
             df_data = obtener_ingresos(cod_ent_mun, periodo_cmp)
-            if "ambito_codigo" in df_data:
-                df_data = df_data[df_data["ambito_codigo"] == codigo_cuenta]
-            # Aquí usamos nom_detalle_sectorial como tu valor numérico
+
+            # Filtrar por código de detalle sectorial (la cuenta real)
+            if "cod_detalle_sectorial" in df_data.columns:
+                df_data = df_data[df_data["cod_detalle_sectorial"] == codigo_cuenta]
+            else:
+                df_data = pd.DataFrame()
+
+            # Sumar la columna numérica 'nom_detalle_sectorial'
             monto = pd.to_numeric(
                 df_data.get("nom_detalle_sectorial", []), errors="coerce"
             ).sum() / 1e6
+
             resultados.append({"Municipio": mun, "Ingresos (millones)": monto})
 
         df_res = pd.DataFrame(resultados)
