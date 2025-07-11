@@ -140,17 +140,18 @@ if pagina == "Programación de Ingresos":
     per_lab = st.selectbox("Período puntual:", df_per["periodo_label"].tolist())
     per = str(df_per.loc[df_per["periodo_label"] == per_lab, "periodo"].iloc[0])
 
-    # Botón para cargar ingresos
+    # 1) Cargar ingresos
     if st.button("Cargar ingresos"):
         with st.spinner("Cargando datos..."):
             st.session_state["df_ingresos"] = obtener_ingresos(cod_ent, per)
 
-    # Mostrar tabla de resumen
+    # 2) Tabla resumen
     if "df_ingresos" in st.session_state:
         df_i = st.session_state["df_ingresos"]
         st.subheader("1. Datos brutos de ingresos")
         st.dataframe(df_i, use_container_width=True)
 
+        # Filtrar ambito
         codigos_ambito = [
             "1", "1.1", "1.1.01.01.200", "1.1.01.02.104",
             "1.1.01.02.200", "1.1.01.02.300", "1.1.02.06.001",
@@ -164,7 +165,7 @@ if pagina == "Programación de Ingresos":
             'nom_detalle_sectorial': 'Presupuesto Definitivo'
         })
 
-        # Convertir a numérico y dividir entre un millón
+        # Numérico y división por millones
         resumen['Presupuesto Inicial'] = (
             pd.to_numeric(resumen['Presupuesto Inicial'], errors='coerce') / 1e6
         )
@@ -172,35 +173,35 @@ if pagina == "Programación de Ingresos":
             pd.to_numeric(resumen['Presupuesto Definitivo'], errors='coerce') / 1e6
         )
 
-        # Renombrar columnas para visualización
+        # Renombrar para visualización
         resumen = resumen.rename(columns={
             'periodo': 'Periodo',
             'codigo_entidad': 'Código Entidad',
             'nombre_entidad': 'Nombre Entidad',
             'ambito_codigo': 'Ámbito Código',
-            'ambito_nombre': 'Ámbito Nombre'
-        })
+            'ambito_nombre': 'Ámbito Nombre',
+            'nombre_cuenta': 'Nombre Cuenta'
+        }).reset_index(drop=True)
 
-        # Resetear índice para ocultarlo
-        resumen_display = resumen.reset_index(drop=True)
+        # Calcular total antes de formatear
+        total_ing = resumen.loc[
+            resumen['Ámbito Nombre'].str.upper() == 'INGRESOS',
+            'Presupuesto Definitivo'
+        ].sum()
+
+        # Preparar tabla para mostrar sin índice
+        resumen_table = resumen.copy()
+        resumen_table['Presupuesto Inicial'] = resumen_table['Presupuesto Inicial'].apply(format_cop)
+        resumen_table['Presupuesto Definitivo'] = resumen_table['Presupuesto Definitivo'].apply(format_cop)
 
         st.subheader("2. Resumen de ingresos filtrados (millones de pesos)")
-        styled = resumen_display.style.format({
-            "Presupuesto Inicial": format_cop,
-            "Presupuesto Definitivo": format_cop
-        })
-        st.dataframe(styled, use_container_width=True)
+        html = resumen_table.to_html(index=False, escape=False)
+        st.markdown(html, unsafe_allow_html=True)
 
-        if 'Ámbito Nombre' in resumen_display.columns and 'Presupuesto Definitivo' in resumen_display.columns:
-            total_ing = resumen_display.loc[
-                resumen_display['Ámbito Nombre'].str.upper() == 'INGRESOS',
-                'Presupuesto Definitivo'
-            ].sum()
+        st.subheader("3. Total Presupuesto Definitivo (INGRESOS) (millones de pesos)")
+        st.metric("", format_cop(total_ing))
 
-            st.subheader("3. Total Presupuesto Definitivo (INGRESOS) (millones de pesos)")
-            st.metric("", format_cop(total_ing))
-
-    # Botón para mostrar histórico
+    # 3) Histórico Q4
     if st.button("Mostrar histórico"):
         with st.spinner("Obteniendo histórico Q4..."):
             df_hist = obtener_ingresos(cod_ent)
@@ -228,14 +229,14 @@ if pagina == "Programación de Ingresos":
             df_sel.columns = df_sel.columns.str.strip()
 
             if 'nom_detalle_sectorial' in df_sel.columns:
-                # Convertir a numérico y dividir entre un millón
+                # Convertir y dividir entre millones
                 df_sel['nom_detalle_sectorial'] = (
                     pd.to_numeric(df_sel['nom_detalle_sectorial'], errors='coerce') / 1e6
                 )
                 df_sel = df_sel.set_index('periodo_dt')
                 df_chart = df_sel.reset_index()
 
-                # Calcular dominio de Y según valor inicial y máximo
+                # Dominio Y
                 inicial = df_chart['nom_detalle_sectorial'].iloc[0]
                 maximo = df_chart['nom_detalle_sectorial'].max()
                 dominio_min = inicial * 0.9
@@ -243,33 +244,21 @@ if pagina == "Programación de Ingresos":
 
                 st.subheader("4. Histórico de INGRESOS (Q4) (millones de pesos)")
                 chart = alt.Chart(df_chart).mark_line(point=True).encode(
-                    x=alt.X(
-                        'periodo_dt:T',
-                        title='Periodo',
-                        axis=alt.Axis(format='%Y', tickCount='year')
-                    ),
-                    y=alt.Y(
-                        'nom_detalle_sectorial:Q',
-                        title='Ingresos Q4 (millones de pesos)',
-                        axis=alt.Axis(format='$,.0f'),
-                        scale=alt.Scale(domain=[dominio_min, dominio_max], nice=False)
-                    ),
+                    x=alt.X('periodo_dt:T', title='Periodo',
+                            axis=alt.Axis(format='%Y', tickCount='year')),
+                    y=alt.Y('nom_detalle_sectorial:Q', title='Ingresos Q4 (millones de pesos)',
+                            axis=alt.Axis(format='$,.0f'),
+                            scale=alt.Scale(domain=[dominio_min, dominio_max], nice=False)),
                     tooltip=[
                         alt.Tooltip('periodo_dt:T', title='Periodo'),
-                        alt.Tooltip(
-                            'nom_detalle_sectorial:Q',
-                            title='Ingresos Q4 (millones de pesos)',
-                            format='$,.0f'
-                        )
+                        alt.Tooltip('nom_detalle_sectorial:Q',
+                                    title='Ingresos Q4 (millones de pesos)', format='$,.0f')
                     ]
                 ).properties(width=600, height=300)
 
                 st.altair_chart(chart, use_container_width=True)
             else:
-                st.error(
-                    "No se encontró la columna 'nom_detalle_sectorial' "
-                    "en los datos históricos."
-                )
+                st.error("No se encontró la columna 'nom_detalle_sectorial' en los datos históricos.")
                 
 elif pagina == "Ejecución de Gastos":
     st.title("💸 Ejecución de Gastos")
