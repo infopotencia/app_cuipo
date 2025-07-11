@@ -120,20 +120,6 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-ChatGPT said:
-
-Thought for a couple of seconds
-python
-Copy
-Edit
-import io
-import pandas as pd
-import altair as alt
-import streamlit as st
-
-def format_cop(x):
-    return f"${x:,.0f}"
-
 if pagina == "Programación de Ingresos":
     st.title("💰 Programación de Ingresos")
 
