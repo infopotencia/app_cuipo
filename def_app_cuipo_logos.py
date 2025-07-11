@@ -283,10 +283,8 @@ elif pagina == "Ejecución de Gastos":
             "2.3.4.02", "2.3.4.03", "2.3.4.04", "2.3.4.07", "2.3.4.09", "2.3.5.01",
             "2.3.5.02", "2.3.6.01", "2.3.6.02", "2.3.6.03", "2.3.7.01", "2.3.7.05",
             "2.3.7.06", "2.3.8"
-        ]df_filtered = df_raw[
-            df_raw["cuenta"].isin(cuentas_filtro) &
-            df_raw["nom_vigencia_del_gasto"].str.strip().str.upper().eq("VIGENCIA ACTUAL")
-        ] df_raw[
+        ]
+        df_filtered = df_raw[
             df_raw["cuenta"].isin(cuentas_filtro) &
             df_raw["nom_vigencia_del_gasto"].str.strip().str.upper().eq("VIGENCIA ACTUAL")
         ]
@@ -302,13 +300,12 @@ elif pagina == "Ejecución de Gastos":
         resumen = pd.concat([resumen, pd.DataFrame([{"cuenta":"","nombre_cuenta":"TOTAL", **tot.to_dict()}])], ignore_index=True)
 
         resumen_disp = resumen.rename(columns={
-            'cuenta':'Cuenta',
-            'nombre_cuenta':'Nombre cuenta',
-            'compromisos':'Compromisos',
-            'pagos':'Pagos',
-            'obligaciones':'Obligaciones'
+            'cuenta': 'Cuenta',
+            'nombre_cuenta': 'Nombre cuenta',
+            'compromisos': 'Compromisos',
+            'pagos': 'Pagos',
+            'obligaciones': 'Obligaciones'
         })
-        # Dividir valores entre 1 millón
         resumen_disp[['Compromisos','Pagos','Obligaciones']] = resumen_disp[['Compromisos','Pagos','Obligaciones']] / 1_000_000
         resumen_disp[['Compromisos','Pagos','Obligaciones']] = resumen_disp[['Compromisos','Pagos','Obligaciones']].applymap(format_cop)
         st.write("### Resumen de compromisos, pagos y obligaciones por cuenta (en millones de pesos)")
@@ -320,12 +317,11 @@ elif pagina == "Ejecución de Gastos":
             .groupby(["cuenta", "nombre_cuenta"], as_index=False)[["compromisos", "pagos", "obligaciones"]]
             .sum()
         )
-        gastos_disp = gastos.drop(columns=["cuenta","nombre_cuenta"]).rename(columns={
-            'compromisos':'Compromisos',
-            'pagos':'Pagos',
-            'obligaciones':'Obligaciones'
+        gastos_disp = gastos.drop(columns=["cuenta", "nombre_cuenta"]).rename(columns={
+            'compromisos': 'Compromisos',
+            'pagos': 'Pagos',
+            'obligaciones': 'Obligaciones'
         })
-        # Dividir valores entre 1 millón
         gastos_disp[['Compromisos','Pagos','Obligaciones']] = gastos_disp[['Compromisos','Pagos','Obligaciones']] / 1_000_000
         gastos_disp[['Compromisos','Pagos','Obligaciones']] = gastos_disp[['Compromisos','Pagos','Obligaciones']].applymap(format_cop)
         st.write("### Detalle GASTOS (en millones de pesos)")
@@ -342,12 +338,11 @@ elif pagina == "Ejecución de Gastos":
         consolidado = pd.concat([consolidado, pd.DataFrame([{"nom_vigencia_del_gasto":"TOTAL", **tot_con.to_dict()}])], ignore_index=True)
 
         consolidado_disp = consolidado.rename(columns={
-            'nom_vigencia_del_gasto':'Vigencia del gasto',
-            'compromisos':'Compromisos',
-            'pagos':'Pagos',
-            'obligaciones':'Obligaciones'
+            'nom_vigencia_del_gasto': 'Vigencia del gasto',
+            'compromisos': 'Compromisos',
+            'pagos': 'Pagos',
+            'obligaciones': 'Obligaciones'
         })
-        # Dividir valores entre 1 millón
         consolidado_disp[['Compromisos','Pagos','Obligaciones']] = consolidado_disp[['Compromisos','Pagos','Obligaciones']] / 1_000_000
         consolidado_disp[['Compromisos','Pagos','Obligaciones']] = consolidado_disp[['Compromisos','Pagos','Obligaciones']].applymap(format_cop)
         st.write("### Consolidado de GASTOS por tipo de vigencia (en millones de pesos)")
@@ -369,6 +364,7 @@ elif pagina == "Ejecución de Gastos":
             file_name='ejecucion_gastos_completo.xlsx',
             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
+
 
 
 
