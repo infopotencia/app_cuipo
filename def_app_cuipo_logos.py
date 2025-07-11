@@ -14,11 +14,12 @@ def _get_base64(bin_file):
         return base64.b64encode(f.read()).decode()
 
 logo_top = _get_base64('Recurso 1.png')       # "Potencia Digital"
-logo_bottom = _get_base64('symbol.png')  # Símbolo
+logo_bottom = _get_base64('symbol.png')       # Símbolo
 
 # ————————————————
 # Funciones comunes
 # ————————————————
+
 def format_cop(x):
     try:
         val = float(x)
@@ -52,25 +53,12 @@ def obtener_ingresos(codigo_entidad, periodo=None):
             df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
     return df
 
-@st.cache_data(ttl=600, show_spinner=False)
-def obtener_datos_gastos(codigo_entidad, periodo):
-    cols = [
-        "periodo", "codigo_entidad", "nombre_entidad",
-        "cuenta", "nombre_cuenta", "compromisos", "pagos", "obligaciones", "nom_vigencia_del_gasto"
-    ]
-    where = (
-        f"codigo_entidad='{codigo_entidad}' AND "
-        f"periodo='{periodo}'"
-    )
-    params = {"$select": ",".join(cols), "$where": where, "$limit": 10000}
-    r = requests.get("https://www.datos.gov.co/resource/4f7r-epif.csv", params=params, timeout=30)
-    r.raise_for_status()
-    return pd.read_csv(io.StringIO(r.text))
-
 # ————————————————
 # Carga de tablas de control
 # ————————————————
 df_mun, df_dep, df_per = cargar_tablas_control()
+# Carga adicional de cuentas de ingresos
+df_cuentas_control = pd.read_excel("Tablas Control.xlsx", sheet_name="Tablacontrolingresos")
 
 # ————————————————
 # Configuración de la página
@@ -81,46 +69,47 @@ st.set_page_config(page_title="Análisis Financiero", layout="wide")
 # Navegación de páginas
 # ————————————————
 pagina = st.sidebar.selectbox("Selecciona página:", [
-    "Programación de Ingresos", "Ejecución de Gastos"
+    "Programación de Ingresos", "Ejecución de Gastos", "Comparativa de Ingresos"
 ])
-# Ahora, coloca el logo al pie del sidebar
+
+# Logos en sidebar
 st.sidebar.markdown(
     f"""
     <style>
-      /* Contenedor absoluto al pie del sidebar */
       .sidebar-logo {{
         position: absolute;
-        bottom: 100px;       /* ← ESTA LÍNEA determina la distancia desde el borde inferior */
+        bottom: 100px;
         left: 0;
         right: 0;
         text-align: center;
         z-index: 1000;
         pointer-events: none;
       }}
-      /* Ajusta el tamaño del logo */
       .sidebar-logo img {{
         width: 150px;
       }}
       .sidebar-logo2 {{
         position: absolute;
-        bottom: -575px;      /* ← ESTA LÍNEA determina la altura del segundo logo */
+        bottom: -575px;
         left: 50%;
         transform: translateX(-50%);
-        width: 100px;      /* ajusta al tamaño que quieras */
+        width: 100px;
         z-index: 1000;
       }}
     </style>
     <div class="sidebar-logo">
       <img src="data:image/png;base64,{logo_top}" alt="Potencia Digital" />
     </div>
-     <div class="sidebar-logo2">
+    <div class="sidebar-logo2">
       <img src="data:image/png;base64,{logo_bottom}" alt="Symbol" />
     </div>
     """,
     unsafe_allow_html=True
 )
 
-
+# ————————————————
+# Páginas
+# ————————————————
 if pagina == "Programación de Ingresos":
     st.title("💰 Programación de Ingresos")
 
@@ -290,7 +279,7 @@ if pagina == "Programación de Ingresos":
                     file_name="ingresos_completo.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-                
+
 elif pagina == "Ejecución de Gastos":
     st.title("💸 Ejecución de Gastos")
 
@@ -443,7 +432,7 @@ elif pagina == "Ejecución de Gastos":
             file_name='ejecucion_gastos_completo.xlsx',
             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        
+
 elif pagina == "Comparativa de Ingresos":
     st.title("📊 Comparativa de Ingresos por Municipio")
 
