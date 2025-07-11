@@ -485,19 +485,19 @@ elif pagina == "Comparativa de Ingresos":
 
     # 5) Botón de comparación
     if st.button("Comparar ingresos"):
-    resultados = []
-    for mun in [municipio_principal] + municipios_comp:
-        cod_ent_mun = str(
-            df_mun.loc[df_mun["nombre_entidad"] == mun, "codigo_entidad"].iloc[0]
-        )
-        df_data = obtener_ingresos(cod_ent_mun, periodo_cmp)
-        if "ambito_codigo" in df_data:
-            df_data = df_data[df_data["ambito_codigo"] == codigo_cuenta]
-        # Aquí usamos nom_detalle_sectorial como tu valor numérico
-        monto = pd.to_numeric(
-            df_data.get("nom_detalle_sectorial", []), errors="coerce"
-        ).sum() / 1e6
-        resultados.append({"Municipio": mun, "Ingresos (millones)": monto})
+        resultados = []
+        for mun in [municipio_principal] + municipios_comp:
+            cod_ent_mun = str(
+                df_mun.loc[df_mun["nombre_entidad"] == mun, "codigo_entidad"].iloc[0]
+            )
+            df_data = obtener_ingresos(cod_ent_mun, periodo_cmp)
+            if "ambito_codigo" in df_data:
+                df_data = df_data[df_data["ambito_codigo"] == codigo_cuenta]
+            # Aquí usamos nom_detalle_sectorial como tu valor numérico
+            monto = pd.to_numeric(
+                df_data.get("nom_detalle_sectorial", []), errors="coerce"
+            ).sum() / 1e6
+            resultados.append({"Municipio": mun, "Ingresos (millones)": monto})
 
         df_res = pd.DataFrame(resultados)
         chart = (
