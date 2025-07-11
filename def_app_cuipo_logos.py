@@ -207,7 +207,7 @@ if pagina == "Programación de Ingresos":
             st.altair_chart(chart, use_container_width=True)
 
     else:
-
+        
 if pagina == "Programación de Ingresos":
     st.title("💰 Programación de Ingresos")
 
