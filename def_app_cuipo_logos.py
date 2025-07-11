@@ -153,9 +153,8 @@ if pagina == "Programación de Ingresos":
 
         # Botón de descarga de datos brutos
         buffer_raw = io.BytesIO()
-        with pd.ExcelWriter(buffer_raw, engine="xlsxwriter") as writer:
+        with pd.ExcelWriter(buffer_raw, engine="openpyxl") as writer:
             df_i.to_excel(writer, index=False, sheet_name="Datos Brutos")
-            writer.save()
         buffer_raw.seek(0)
         st.download_button(
             "⬇️ Descargar datos brutos en Excel",
@@ -164,7 +163,7 @@ if pagina == "Programación de Ingresos":
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-        # Filtrar ambito
+        # Filtrar ámbitos
         codigos_ambito = [
             "1", "1.1", "1.1.01.01.200", "1.1.01.02.104",
             "1.1.01.02.200", "1.1.01.02.300", "1.1.02.06.001",
@@ -178,7 +177,7 @@ if pagina == "Programación de Ingresos":
             'nom_detalle_sectorial': 'Presupuesto Definitivo'
         })
 
-        # Numérico y división por millones
+        # Convertir y dividir entre millones
         resumen['Presupuesto Inicial'] = (
             pd.to_numeric(resumen['Presupuesto Inicial'], errors='coerce') / 1e6
         )
@@ -186,7 +185,7 @@ if pagina == "Programación de Ingresos":
             pd.to_numeric(resumen['Presupuesto Definitivo'], errors='coerce') / 1e6
         )
 
-        # Renombrar para visualización y quitar índice
+        # Renombrar y resetear índice
         resumen = (resumen
             .rename(columns={
                 'periodo': 'Periodo',
@@ -199,20 +198,22 @@ if pagina == "Programación de Ingresos":
             .reset_index(drop=True)
         )
 
-        # Calcular total antes de formatear
+        # Total ing.
         total_ing = resumen.loc[
             resumen['Ámbito Nombre'].str.upper() == 'INGRESOS',
             'Presupuesto Definitivo'
         ].sum()
 
-        # Preparar tabla formateada
+        # Mostrar tabla
         resumen_table = resumen.copy()
         resumen_table['Presupuesto Inicial'] = resumen_table['Presupuesto Inicial'].apply(format_cop)
         resumen_table['Presupuesto Definitivo'] = resumen_table['Presupuesto Definitivo'].apply(format_cop)
 
         st.subheader("2. Resumen de ingresos filtrados (millones de pesos)")
-        html = resumen_table.to_html(index=False, escape=False)
-        st.markdown(html, unsafe_allow_html=True)
+        st.markdown(
+            resumen_table.to_html(index=False, escape=False),
+            unsafe_allow_html=True
+        )
 
         st.subheader("3. Total Presupuesto Definitivo (INGRESOS) (millones de pesos)")
         st.metric("", format_cop(total_ing))
@@ -231,10 +232,9 @@ if pagina == "Programación de Ingresos":
             df_hist['year'] = df_hist['periodo_dt'].dt.year
             df_hist['md'] = df_hist['periodo_dt'].dt.strftime('%m%d')
 
-            current_year = df_hist['year'].max()
             registros = []
             for yr, grp in df_hist.groupby('year'):
-                if yr != current_year:
+                if yr != df_hist['year'].max():
                     q4 = grp[grp['md'] == '1201']
                     if not q4.empty:
                         registros.append(q4.loc[q4['periodo_dt'].idxmax()])
@@ -245,14 +245,12 @@ if pagina == "Programación de Ingresos":
             df_sel.columns = df_sel.columns.str.strip()
 
             if 'nom_detalle_sectorial' in df_sel.columns:
-                # Convertir y dividir entre millones
                 df_sel['nom_detalle_sectorial'] = (
                     pd.to_numeric(df_sel['nom_detalle_sectorial'], errors='coerce') / 1e6
                 )
                 df_sel = df_sel.set_index('periodo_dt')
                 df_chart = df_sel.reset_index()
 
-                # Dominio Y
                 inicial = df_chart['nom_detalle_sectorial'].iloc[0]
                 maximo = df_chart['nom_detalle_sectorial'].max()
                 dominio_min = inicial * 0.9
@@ -268,10 +266,8 @@ if pagina == "Programación de Ingresos":
                             scale=alt.Scale(domain=[dominio_min, dominio_max], nice=False)),
                     tooltip=[
                         alt.Tooltip('periodo_dt:T', title='Periodo'),
-                        alt.Tooltip(
-                            'nom_detalle_sectorial:Q',
-                            title='Ingresos Q4 (millones de pesos)',
-                            format='$,.0f')
+                        alt.Tooltip('nom_detalle_sectorial:Q',
+                                    title='Ingresos Q4 (millones de pesos)', format='$,.0f')
                     ]
                 ).properties(width=600, height=300)
 
@@ -279,14 +275,10 @@ if pagina == "Programación de Ingresos":
 
                 # Botón de descarga de todo
                 buffer_all = io.BytesIO()
-                with pd.ExcelWriter(buffer_all, engine="xlsxwriter") as writer:
-                    # Datos brutos
+                with pd.ExcelWriter(buffer_all, engine="openpyxl") as writer:
                     st.session_state["df_ingresos"].to_excel(writer, index=False, sheet_name="Datos Brutos")
-                    # Resumen
                     resumen.to_excel(writer, index=False, sheet_name="Resumen")
-                    # Histórico
-                    df_chart.to_excel(writer, index=False, sheet_name="Historico Q4")
-                    writer.save()
+                    df_chart.to_excel(writer, index=False, sheet_name="Histórico Q4")
                 buffer_all.seek(0)
                 st.download_button(
                     "⬇️ Descargar todas las tablas en Excel",
