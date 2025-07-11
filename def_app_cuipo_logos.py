@@ -174,8 +174,8 @@ if pagina == "Programación de Ingresos":
             st.subheader("3. Total Presupuesto Definitivo (INGRESOS)")
             st.metric("", format_cop(total_ing))
 
-   if st.button("Mostrar histórico"):
-    with st.spinner("Obteniendo histórico Q4..."):
+       if st.button("Mostrar histórico"):
+        with st.spinner("Obteniendo histórico Q4..."):
         # ... tu código de carga y preparación de df_sel ...
         df_sel = pd.DataFrame(registros).sort_values('periodo_dt')
         df_sel.columns = df_sel.columns.str.strip()
