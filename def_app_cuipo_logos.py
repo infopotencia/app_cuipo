@@ -56,12 +56,11 @@ def obtener_ingresos(codigo_entidad, periodo=None):
 def obtener_datos_gastos(codigo_entidad, periodo):
     cols = [
         "periodo", "codigo_entidad", "nombre_entidad",
-        "cuenta", "nombre_cuenta", "compromisos", "pagos", "obligaciones"
+        "cuenta", "nombre_cuenta", "compromisos", "pagos", "obligaciones", "nom_vigencia_del_gasto"
     ]
     where = (
         f"codigo_entidad='{codigo_entidad}' AND "
-        f"periodo='{periodo}' AND "
-        f"nom_vigencia_del_gasto='VIGENCIA ACTUAL'"
+        f"periodo='{periodo}'"
     )
     params = {"$select": ",".join(cols), "$where": where, "$limit": 10000}
     r = requests.get("https://www.datos.gov.co/resource/4f7r-epif.csv", params=params, timeout=30)
