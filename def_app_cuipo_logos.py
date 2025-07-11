@@ -323,7 +323,7 @@ elif pagina == "Ejecución de Gastos":
         )
 
         # Métrica total sin GASTOS
-        st.metric("Total compromisos (sin GASTOS)", format_cop(tot["compromisos"]))
+        st.metric("Total compromisos - Vigencia Actual", format_cop(tot["compromisos"]))
 
         # Consolidado de GASTOS por tipo de vigencia
         vigencias = [
