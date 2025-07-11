@@ -444,7 +444,7 @@ elif pagina == "Ejecución de Gastos":
             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
 
-    elif pagina == "Comparativa de Ingresos":
+elif pagina == "Comparativa de Ingresos":
         st.title("📊 Comparativa de Ingresos por Municipio")
     
         # 1) Departamento y municipio principal
