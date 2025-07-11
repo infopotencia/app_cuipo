@@ -151,6 +151,19 @@ if pagina == "Programación de Ingresos":
         st.subheader("1. Datos brutos de ingresos")
         st.dataframe(df_i, use_container_width=True)
 
+        # Botón de descarga de datos brutos
+        buffer_raw = io.BytesIO()
+        with pd.ExcelWriter(buffer_raw, engine="xlsxwriter") as writer:
+            df_i.to_excel(writer, index=False, sheet_name="Datos Brutos")
+            writer.save()
+        buffer_raw.seek(0)
+        st.download_button(
+            "⬇️ Descargar datos brutos en Excel",
+            data=buffer_raw,
+            file_name="datos_brutos_ingresos.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
         # Filtrar ambito
         codigos_ambito = [
             "1", "1.1", "1.1.01.01.200", "1.1.01.02.104",
@@ -173,15 +186,18 @@ if pagina == "Programación de Ingresos":
             pd.to_numeric(resumen['Presupuesto Definitivo'], errors='coerce') / 1e6
         )
 
-        # Renombrar para visualización
-        resumen = resumen.rename(columns={
-            'periodo': 'Periodo',
-            'codigo_entidad': 'Código Entidad',
-            'nombre_entidad': 'Nombre Entidad',
-            'ambito_codigo': 'Ámbito Código',
-            'ambito_nombre': 'Ámbito Nombre',
-            'nombre_cuenta': 'Nombre Cuenta'
-        }).reset_index(drop=True)
+        # Renombrar para visualización y quitar índice
+        resumen = (resumen
+            .rename(columns={
+                'periodo': 'Periodo',
+                'codigo_entidad': 'Código Entidad',
+                'nombre_entidad': 'Nombre Entidad',
+                'ambito_codigo': 'Ámbito Código',
+                'ambito_nombre': 'Ámbito Nombre',
+                'nombre_cuenta': 'Nombre Cuenta'
+            })
+            .reset_index(drop=True)
+        )
 
         # Calcular total antes de formatear
         total_ing = resumen.loc[
@@ -189,7 +205,7 @@ if pagina == "Programación de Ingresos":
             'Presupuesto Definitivo'
         ].sum()
 
-        # Preparar tabla para mostrar sin índice
+        # Preparar tabla formateada
         resumen_table = resumen.copy()
         resumen_table['Presupuesto Inicial'] = resumen_table['Presupuesto Inicial'].apply(format_cop)
         resumen_table['Presupuesto Definitivo'] = resumen_table['Presupuesto Definitivo'].apply(format_cop)
@@ -246,17 +262,39 @@ if pagina == "Programación de Ingresos":
                 chart = alt.Chart(df_chart).mark_line(point=True).encode(
                     x=alt.X('periodo_dt:T', title='Periodo',
                             axis=alt.Axis(format='%Y', tickCount='year')),
-                    y=alt.Y('nom_detalle_sectorial:Q', title='Ingresos Q4 (millones de pesos)',
+                    y=alt.Y('nom_detalle_sectorial:Q',
+                            title='Ingresos Q4 (millones de pesos)',
                             axis=alt.Axis(format='$,.0f'),
                             scale=alt.Scale(domain=[dominio_min, dominio_max], nice=False)),
                     tooltip=[
                         alt.Tooltip('periodo_dt:T', title='Periodo'),
-                        alt.Tooltip('nom_detalle_sectorial:Q',
-                                    title='Ingresos Q4 (millones de pesos)', format='$,.0f')
+                        alt.Tooltip(
+                            'nom_detalle_sectorial:Q',
+                            title='Ingresos Q4 (millones de pesos)',
+                            format='$,.0f')
                     ]
                 ).properties(width=600, height=300)
 
                 st.altair_chart(chart, use_container_width=True)
+
+                # Botón de descarga de todo
+                buffer_all = io.BytesIO()
+                with pd.ExcelWriter(buffer_all, engine="xlsxwriter") as writer:
+                    # Datos brutos
+                    st.session_state["df_ingresos"].to_excel(writer, index=False, sheet_name="Datos Brutos")
+                    # Resumen
+                    resumen.to_excel(writer, index=False, sheet_name="Resumen")
+                    # Histórico
+                    df_chart.to_excel(writer, index=False, sheet_name="Historico Q4")
+                    writer.save()
+                buffer_all.seek(0)
+                st.download_button(
+                    "⬇️ Descargar todas las tablas en Excel",
+                    data=buffer_all,
+                    file_name="ingresos_completo.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
             else:
                 st.error("No se encontró la columna 'nom_detalle_sectorial' en los datos históricos.")
                 
