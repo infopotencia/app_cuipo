@@ -68,6 +68,21 @@ def obtener_datos_gastos(codigo_entidad, periodo):
     r.raise_for_status()
     return pd.read_csv(io.StringIO(r.text))
 
+@st.cache_data(ttl=300)
+def fetch_account_data(periodo: str, ambito_code: str):
+    """
+    Obtiene registros de la API 22ah-ddsj filtrando por periodo y ambito_codigo.
+    """
+    url = "https://www.datos.gov.co/resource/22ah-ddsj.json"
+    params = {
+        "$where": f"periodo='{periodo}' AND ambito_codigo='{ambito_code}'",
+        "$limit": 50000
+    }
+    resp = requests.get(url, params=params, timeout=30)
+    resp.raise_for_status()
+    return pd.DataFrame(resp.json())
+
+
 # ————————————————
 # Carga de tablas de control
 # ————————————————
@@ -451,14 +466,10 @@ elif pagina == "Ejecución de Gastos":
 elif pagina == "Comparativa de Ingresos":
     st.title("📊 Comparativa Per Cápita (Media Aritmética)")
 
-    # --- 2. Tablas de control ya cargadas al inicio ---
-    # df_mun, df_dep, df_per = cargar_tablas_control()
-    # df_cuentas_control = pd.read_excel(...)
-
-    # 3. Parámetros de consulta
+    # 1) Parámetros de consulta (usa df_mun, df_per y df_cuentas_control ya cargados)
     st.sidebar.header("Parámetros de consulta")
-    departamentos = sorted(df_mun['departamento'].dropna().astype(str).unique())
-    departamento = st.sidebar.selectbox("Departamento", departamentos)
+    deps = sorted(df_mun['departamento'].dropna().astype(str).unique())
+    departamento = st.sidebar.selectbox("Departamento", deps)
 
     df_dep_comp = df_mun[df_mun['departamento'] == departamento]
     municipio = st.sidebar.selectbox(
@@ -469,10 +480,7 @@ elif pagina == "Comparativa de Ingresos":
     periodo_label = st.sidebar.selectbox("Período (label)", df_per['periodo_label'].tolist())
     periodo = str(df_per.loc[df_per['periodo_label'] == periodo_label, 'periodo'].iloc[0])
 
-    cuenta = st.sidebar.selectbox(
-        "Cuenta",
-        df_cuentas_control['Nombre de la Cuenta'].dropna().astype(str).unique()
-    )
+    cuenta = st.sidebar.selectbox("Cuenta", df_cuentas_control['Nombre de la Cuenta'].dropna().astype(str).unique())
     ambito_code = str(
         df_cuentas_control.loc[
             df_cuentas_control['Nombre de la Cuenta'] == cuenta,
@@ -480,15 +488,15 @@ elif pagina == "Comparativa de Ingresos":
         ].iloc[0]
     )
 
-    # 4. Ejecutar comparativa
+    # 2) Ejecutar comparativa
     if st.sidebar.button("🚀 Ejecutar comparativa"):
-        # 4.1 Obtención de datos y chequeo
+        # a) Traer datos
         df_acct = fetch_account_data(periodo, ambito_code)
         if df_acct.empty:
             st.warning("No hay datos para esa cuenta y período.")
             st.stop()
 
-        # 5. Sumar presupuesto definitivo por municipio
+        # b) Sumar presupuesto_definitivo por municipio
         df_acct['presupuesto_def'] = pd.to_numeric(
             df_acct['presupuesto_definitivo'].astype(str).str.replace(',', ''),
             errors='coerce'
@@ -499,32 +507,30 @@ elif pagina == "Comparativa de Ingresos":
             .sum()
         )
 
-        # 6. Merge con población y categoría
+        # c) Merge con población y categoría
         df_sum = (
             df_sum
             .merge(df_mun[['nombre_entidad','poblacion','categoria']], on='nombre_entidad', how='left')
             .dropna(subset=['poblacion'])
         )
 
-        # 7. Calcular per cápita
+        # d) Calcular per cápita
         df_sum['per_capita'] = df_sum['presupuesto_def'] / df_sum['poblacion']
 
-        # 8. Valores a comparar
+        # e) Extraer valores seleccionados
         sel = df_sum[df_sum['nombre_entidad'] == municipio]
         pc_sel = sel['per_capita'].iloc[0] if not sel.empty else 0.0
-        cat = sel['categoria'].iloc[0] if not sel.empty else None
-
+        cat    = sel['categoria'].iloc[0]   if not sel.empty else None
         pc_cat = df_sum[df_sum['categoria'] == cat]['per_capita'].mean() if cat else 0.0
         pc_all = df_sum['per_capita'].mean()
 
-        # 9. Crear DataFrame de resultados
+        # f) Preparar tabla y gráfico
         df_bar = pd.DataFrame({
             'Tipo': [municipio, f'Promedio Cat. ({cat})', 'Promedio País'],
             'COP per cápita': [pc_sel, pc_cat, pc_all]
         })
         df_bar['COP per cápita'] = df_bar['COP per cápita'].apply(format_cop)
 
-        # 10. Graficar
         df_plot = pd.DataFrame({
             'Tipo': df_bar['Tipo'],
             'Value': [pc_sel, pc_cat, pc_all]
@@ -547,9 +553,9 @@ elif pagina == "Comparativa de Ingresos":
         )
         st.altair_chart(chart, use_container_width=True)
 
-        # 11. Mostrar tabla resultante
         st.subheader('📋 Valores per cápita: media aritmética')
         st.table(df_bar.set_index('Tipo'))
+
 
 
 
