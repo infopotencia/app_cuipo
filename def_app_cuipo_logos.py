@@ -449,99 +449,110 @@ elif pagina == "Ejecución de Gastos":
         )
 
 elif pagina == "Comparativa de Ingresos":
-    st.title("📊 Comparativa de Ingresos por Municipio")
+    st.title("📊 Comparativa Per Cápita (Media Aritmética)")
 
-    # 1) Departamento y municipio principal
-    departamentos = sorted(df_mun["departamento"].unique())
-    departamento = st.selectbox("Departamento:", departamentos)
-    df_muns_dep = df_mun[df_mun["departamento"] == departamento]
-    municipio_principal = st.selectbox(
-        "Municipio principal:", df_muns_dep["nombre_entidad"].tolist()
-    )
+    # 2. Cargar tablas de control
+    df_mun, df_per, df_cuentas = load_control_tables(PATH_EXCEL)
 
-    # 2) Modo de comparación (a nivel nacional)
-    modo = st.radio(
-        "Seleccionar municipios comparativos por:",
-        ["Misma categoría", "4 más cercanos en población"]
-    )
-    if modo == "Misma categoría":
-        cat = df_mun.loc[
-            df_mun["nombre_entidad"] == municipio_principal, "categoria"
-        ].iloc[0]
-        candidatos = df_mun[df_mun["categoria"] == cat]["nombre_entidad"].tolist()
-        candidatos.remove(municipio_principal)
-    else:
-        pop0 = df_mun.loc[
-            df_mun["nombre_entidad"] == municipio_principal, "poblacion"
-        ].iloc[0]
-        df_tmp = df_mun.copy()
-        df_tmp["diff"] = (df_tmp["poblacion"] - pop0).abs()
-        candidatos = (
-            df_tmp[df_tmp["nombre_entidad"] != municipio_principal]
-            .nsmallest(4, "diff")["nombre_entidad"]
-            .tolist()
-        )
+    # 3. Parámetros de consulta
+    st.sidebar.header("Parámetros de consulta")
+    departamentos = sorted(df_mun['departamento'].dropna().astype(str).unique())
+    departamento = st.sidebar.selectbox("Departamento", departamentos)
 
-    municipios_comp = st.multiselect(
-        "Municipios comparación:", options=candidatos, default=candidatos
-    )
+    df_dep = df_mun[df_mun['departamento'] == departamento]
+    municipio = st.sidebar.selectbox("Municipio", df_dep['nombre_entidad'])
 
-    # 3) Período puntual
-    per_lab_cmp = st.selectbox("Período puntual:", df_per["periodo_label"].tolist())
-    periodo_cmp = str(df_per.loc[
-        df_per["periodo_label"] == per_lab_cmp, "periodo"
+    periodo_label = st.sidebar.selectbox("Período (label)", df_per['periodo_label'])
+    periodo = str(df_per.loc[df_per['periodo_label'] == periodo_label, 'periodo'].iloc[0])
+
+    cuenta = st.sidebar.selectbox("Cuenta", df_cuentas['Nombre de la Cuenta'])
+    ambito_code = str(df_cuentas.loc[
+        df_cuentas['Nombre de la Cuenta'] == cuenta,
+        'Código Completo'
     ].iloc[0])
 
-    # 4) Cuenta de ingreso
-    cuenta = st.selectbox(
-        "Cuenta de ingreso:", df_cuentas_control["Nombre de la Cuenta"].tolist()
-    )
-    codigo_cuenta = df_cuentas_control.loc[
-        df_cuentas_control["Nombre de la Cuenta"] == cuenta, "Código Completo"
-    ].iloc[0]
+    # 4. Ejecutar comparativa
+    if st.sidebar.button("🚀 Ejecutar comparativa"):
+        # 4.1 Obtención de datos y chequeo
+        raw = fetch_account_data(periodo, ambito_code)
+        df_acct = pd.DataFrame(raw)
+        if df_acct.empty:
+            st.warning("No hay datos para esa cuenta y período.")
+            st.stop()
 
-    # 5) Botón de comparación
-    if st.button("Comparar ingresos"):
-        resultados = []
-        for mun in [municipio_principal] + municipios_comp:
-            # 1) Traer datos brutos de la API para el período dado
-            cod_ent_mun = str(
-                df_mun.loc[df_mun["nombre_entidad"] == mun, "codigo_entidad"].iloc[0]
-            )
-            df_data = obtener_ingresos(cod_ent_mun, periodo_cmp)
+        # 5. Obtener presupuesto definitivo por municipio (único valor por etiqueta)
+        df_acct['presupuesto_def'] = pd.to_numeric(
+            df_acct['nom_detalle_sectorial'].astype(str).str.replace(',', ''),
+            errors='coerce'
+        )
+        # No sumar, simplemente extraer único por nombre_entidad
+        df_sum = (
+            df_acct
+            .drop_duplicates(subset=['nombre_entidad'])
+            [['nombre_entidad', 'presupuesto_def']]
+            .reset_index(drop=True)
+        )
 
-            # 2) Filtrar localmente por el ambito_codigo seleccionado
-            if "ambito_codigo" in df_data.columns:
-                df_filtrado = df_data[df_data["ambito_codigo"] == codigo_cuenta]
-            else:
-                df_filtrado = pd.DataFrame()
+        # 6. Merge con población y categoría
+        df_sum = df_sum.merge(
+            df_mun[['nombre_entidad', 'poblacion', 'categoria']],
+            on='nombre_entidad', how='left'
+        ).dropna(subset=['poblacion'])
 
-            # 3) Sumar el valor numérico (nom_detalle_sectorial es tu presupuesto definitivo)
-            monto = (
-                pd.to_numeric(df_filtrado.get("nom_detalle_sectorial", []), errors="coerce")
-                .sum()
-                / 1e6
-            )
+        # 7. Calcular per cápita por municipio
+        df_sum['per_capita'] = df_sum['presupuesto_def'] / df_sum['poblacion']
 
-            resultados.append({"Municipio": mun, "Ingresos (millones)": monto})
+        # 8. Valores a comparar
+        sel_row = df_sum[df_sum['nombre_entidad'] == municipio]
+        pc_sel = sel_row['per_capita'].iloc[0] if not sel_row.empty else 0.0
+        categoria = sel_row['categoria'].iloc[0] if not sel_row.empty else None
 
-        df_res = pd.DataFrame(resultados)
+        # Promedio categoría (media aritmética)
+        df_cat = df_sum[df_sum['categoria'] == categoria]
+        pc_cat = df_cat['per_capita'].mean() if not df_cat.empty else 0.0
 
-        chart = (
-            alt.Chart(df_res)
-            .mark_bar()
-            .encode(
-                x=alt.X("Municipio:N", sort="-y", title="Municipio"),
-                y=alt.Y(
-                    "Ingresos (millones):Q",
-                    title="Ingresos (millones de pesos)",
-                    axis=alt.Axis(format="$,.0f"),
-                ),
-                tooltip=["Municipio", "Ingresos (millones)"],
-            )
-            .properties(width=700, height=400)
+        # Promedio país (media aritmética)
+        pc_all = df_sum['per_capita'].mean() if not df_sum.empty else 0.0
+
+        # 9. Crear DataFrame de resultados
+        df_bar = pd.DataFrame({
+            'Tipo': [municipio, f'Promedio Cat. ({categoria})', 'Promedio País'],
+            'COP per cápita': [pc_sel, pc_cat, pc_all]
+        })
+        df_bar['COP per cápita'] = df_bar['COP per cápita'].map(lambda x: f"${x:,.0f}")
+
+        # 10. Graficar
+        df_plot = pd.DataFrame({
+            'Tipo': df_bar['Tipo'],
+            'Value': [pc_sel, pc_cat, pc_all]
+        })
+        chart = alt.Chart(df_plot).mark_bar(cornerRadius=4).encode(
+            x=alt.X('Tipo:N', title=''),
+            y=alt.Y('Value:Q', title='COP per cápita', axis=alt.Axis(format='$,.0f')),
+            color=alt.condition(
+                alt.datum.Tipo == municipio,
+                alt.value('orange'),
+                alt.value('steelblue')
+            ),
+            tooltip=[
+                alt.Tooltip('Tipo:N', title='Tipo'),
+                alt.Tooltip('Value:Q', title='COP per cápita', format='$,.0f')
+            ]
+        ).properties(
+            title=f"Comparativa Per Cápita: {municipio}",
+            width=600, height=400
         )
         st.altair_chart(chart, use_container_width=True)
+
+        # 11. Mostrar tabla resultante
+        st.subheader('📋 Valores per cápita: media aritmética')
+        st.table(df_bar.set_index('Tipo'))
+
+
+
+
+
+
 
 
 
