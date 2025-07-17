@@ -189,41 +189,46 @@ if pagina == "Programación de Ingresos":
         st.download_button("⬇️ Descargar datos brutos en Excel", buf_raw, "datos_brutos_ingresos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         codigos = ["1","1.1","1.1.01.01.200","1.1.01.02.104","1.1.01.02.200","1.1.01.02.300","1.1.02.06.001","1.2.06","1.2.07"]
         df_fil = df_i[df_i.get("ambito_codigo", pd.Series([], dtype=str)).astype(str).isin(codigos)]
-        drop_cols = [c for c in ['cuenta','presupuesto_inicial','presupuesto_definitivo'] if c in df_fil]
-        resumen = df_fil.drop(columns=drop_cols).rename(columns={
-            'cod_detalle_sectorial': 'Presupuesto Inicial',
-            'nom_detalle_sectorial': 'Presupuesto Definitivo'
-        })
-        resumen['Presupuesto Inicial']   = pd.to_numeric(resumen['Presupuesto Inicial'], errors='coerce')   / 1e6
-        resumen['Presupuesto Definitivo'] = pd.to_numeric(resumen['Presupuesto Definitivo'], errors='coerce') / 1e6
 
-        resumen = (resumen
-            .rename(columns={
-                'periodo': 'Periodo',
-                'codigo_entidad': 'Código Entidad',
-                'nombre_entidad': 'Nombre Entidad',
-                'ambito_codigo': 'Ámbito Código',
-                'ambito_nombre': 'Ámbito Nombre',
-                'nombre_cuenta': 'Nombre Cuenta'
-            })
-            .reset_index(drop=True)
-        )
+        #  Convertir a millones las columnas reales (bug de la API ya mapeado en fetch)
+    if 'presupuesto_inicial' in df_fil:
+        df_fil['presupuesto_inicial']   = df_fil['presupuesto_inicial']   / 1e6
+    if 'presupuesto_definitivo' in df_fil:
+        df_fil['presupuesto_definitivo'] = df_fil['presupuesto_definitivo'] / 1e6
 
-        total_ing = resumen.loc[
-            resumen['Ámbito Nombre'].str.upper() == 'INGRESOS',
-            'Presupuesto Definitivo'
-        ].sum()
+    #  Renombrar columnas para el resumen
+    resumen = df_fil.rename(columns={
+        'presupuesto_inicial':   'Presupuesto Inicial',
+        'presupuesto_definitivo': 'Presupuesto Definitivo',
+        'periodo':                'Periodo',
+        'codigo_entidad':         'Código Entidad',
+        'nombre_entidad':         'Nombre Entidad',
+        'ambito_codigo':          'Ámbito Código',
+        'ambito_nombre':          'Ámbito Nombre',
+        'nombre_cuenta':          'Nombre Cuenta'
+    })[[
+        'Periodo','Código Entidad','Nombre Entidad',
+        'Ámbito Código','Ámbito Nombre','Nombre Cuenta',
+        'Presupuesto Inicial','Presupuesto Definitivo'
+    ]].reset_index(drop=True)
 
-        # Mostrar resumen formateado sin índice
-        tabla = resumen.copy()
-        tabla['Presupuesto Inicial']   = tabla['Presupuesto Inicial'].apply(format_cop)
-        tabla['Presupuesto Definitivo'] = tabla['Presupuesto Definitivo'].apply(format_cop)
+    #  Formatear para despliegue
+    resumen['Presupuesto Inicial']   = resumen['Presupuesto Inicial'].map(format_cop)
+    resumen['Presupuesto Definitivo'] = resumen['Presupuesto Definitivo'].map(format_cop)
 
-        st.subheader("2. Resumen de ingresos filtrados (millones de pesos)")
-        st.markdown(tabla.to_html(index=False, escape=False), unsafe_allow_html=True)
+    #  Calcular total definitivo (en millones)
+    total_ing = (
+        pd.to_numeric(
+            resumen['Presupuesto Definitivo'].str.replace('[$,]', '', regex=True),
+            errors='coerce'
+        ).sum()
+    )
 
-        st.subheader("3. Total Presupuesto Definitivo (INGRESOS) (millones de pesos)")
-        st.metric("", format_cop(total_ing))
+    st.subheader("2. Resumen de ingresos filtrados (millones de pesos)")
+    st.markdown(resumen.to_html(index=False, escape=False), unsafe_allow_html=True)
+
+    st.subheader("3. Total Presupuesto Definitivo (INGRESOS) (millones de pesos)")
+    st.metric("", format_cop(total_ing * 1e6))
 
     # 3) Histórico Nominal vs Real con escala ajustada al mínimo real
     if st.button("Mostrar histórico"):
