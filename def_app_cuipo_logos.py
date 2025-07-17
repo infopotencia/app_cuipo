@@ -161,12 +161,12 @@ if pagina == "Programación de Ingresos":
     # Selección de nivel geográfico
     nivel = st.selectbox("Nivel geográfico:", ["Municipios", "Gobernaciones"])
     if nivel == "Municipios":
-        deps = sorted(
-            df_mun["departamento"]
-                .dropna()
-                .astype(str)
-                .unique()
-        )
+            deps = sorted(
+                df_mun["departamento"]
+                    .dropna()
+                    .astype(str)
+                    .unique()
+            )
         dep = st.selectbox("Departamento:", deps)
         df_ent = df_mun[df_mun["departamento"] == dep]
         label = "Municipio"
