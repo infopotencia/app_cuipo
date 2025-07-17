@@ -199,18 +199,17 @@ if pagina == "Programación de Ingresos":
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-        # — Filtrar ámbitos —
+        # — Filtrar ámbitos (con guardia en caso de que falte la columna) —
         codigos = [
             "1","1.1","1.1.01.01.200","1.1.01.02.104",
             "1.1.01.02.200","1.1.01.02.300","1.1.02.06.001",
             "1.2.06","1.2.07"
         ]
-        df_fil = df_i[
-            df_i['ambito_codigo']
-               .fillna('')
-               .astype(str)
-               .isin(codigos)
-        ]
+        if 'ambito_codigo' in df_i.columns:
+            ambito_series = df_i['ambito_codigo']
+        else:
+            ambito_series = pd.Series([''] * len(df_i))
+        df_fil = df_i[ambito_series.fillna('').astype(str).isin(codigos)]
 
         # — Convertir a MILLONES las columnas reales —
         if 'presupuesto_inicial' in df_fil.columns:
@@ -238,14 +237,15 @@ if pagina == "Programación de Ingresos":
         resumen['Presupuesto Inicial']   = resumen['Presupuesto Inicial'].map(format_cop)
         resumen['Presupuesto Definitivo'] = resumen['Presupuesto Definitivo'].map(format_cop)
 
-        # — Total definitivo —
-        total_ing = df_fil['presupuesto_definitivo'].sum()  # ya en millones
+        # — Total definitivo (en millones) —
+        total_ing = df_fil['presupuesto_definitivo'].sum()
 
         st.subheader("2. Resumen de ingresos filtrados (millones de pesos)")
         st.markdown(resumen.to_html(index=False, escape=False), unsafe_allow_html=True)
 
         st.subheader("3. Total Presupuesto Definitivo (INGRESOS) (millones de pesos)")
         st.metric("", format_cop(total_ing * 1e6))
+
     # 3) Histórico Nominal vs Real con escala ajustada al mínimo real
     if st.button("Mostrar histórico"):
         with st.spinner("Obteniendo histórico Q4..."):
