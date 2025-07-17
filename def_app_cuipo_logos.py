@@ -158,7 +158,7 @@ st.sidebar.markdown(
 if pagina == "Programación de Ingresos":
     st.title("💰 Programación de Ingresos")
 
-    # — Selección geográfica —
+    # 1) Selección geográfica
     nivel = st.selectbox("Nivel geográfico:", ["Municipios", "Gobernaciones"])
     if nivel == "Municipios":
         raw_deps = df_mun["departamento"].dropna().unique()
@@ -172,79 +172,94 @@ if pagina == "Programación de Ingresos":
     ent = st.selectbox(f"Selecciona {label}:", df_ent["nombre_entidad"].dropna().astype(str).tolist())
     cod_ent = str(df_ent.loc[df_ent["nombre_entidad"] == ent, "codigo_entidad"].iloc[0])
 
-    # — Selección de período —
+    # 2) Selección de período
     per_lab = st.selectbox("Período puntual:", df_per["periodo_label"].tolist())
     per     = str(df_per.loc[df_per["periodo_label"] == per_lab, "periodo"].iloc[0])
 
-    # — Carga de ingresos —
+    # 3) Carga de datos
     if st.button("Cargar ingresos"):
         with st.spinner("Cargando datos..."):
-            st.session_state["df_ingresos"] = obtener_ingresos(cod_ent, per)
+            df_raw = obtener_ingresos(cod_ent, per)
 
-    # — Resumen una vez cargados —
+            # **Mapeo del bug de la API**:  
+            # Si existen columnas de detalle sectorial, las convertimos a presupuestos
+            if 'cod_detalle_sectorial' in df_raw.columns:
+                df_raw['presupuesto_inicial'] = pd.to_numeric(
+                    df_raw['cod_detalle_sectorial'].astype(str).str.replace(',', ''),
+                    errors='coerce'
+                )
+            if 'nom_detalle_sectorial' in df_raw.columns:
+                df_raw['presupuesto_definitivo'] = pd.to_numeric(
+                    df_raw['nom_detalle_sectorial'].astype(str).str.replace(',', ''),
+                    errors='coerce'
+                )
+
+            st.session_state["df_ingresos"] = df_raw
+
+    # 4) Si ya cargamos…
     if "df_ingresos" in st.session_state:
         df_i = st.session_state["df_ingresos"]
         st.subheader("1. Datos brutos de ingresos")
         st.dataframe(df_i, use_container_width=True)
 
-        # Botón de descarga
-        buf_raw = io.BytesIO()
-        with pd.ExcelWriter(buf_raw, engine="openpyxl") as writer:
-            df_i.to_excel(writer, index=False, sheet_name="Datos Brutos")
-        buf_raw.seek(0)
-        st.download_button(
-            "⬇️ Descargar datos brutos en Excel",
-            data=buf_raw,
-            file_name="datos_brutos_ingresos.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        #  descarga Excel…
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as wr:
+            df_i.to_excel(wr, index=False, sheet_name="Brutos")
+        buf.seek(0)
+        st.download_button("⬇️ Descargar brutos", buf,
+                           "datos_brutos.xlsx",
+                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-        # — Filtrar ámbitos (con guardia en caso de que falte la columna) —
-        codigos = [
-            "1","1.1","1.1.01.01.200","1.1.01.02.104",
-            "1.1.01.02.200","1.1.01.02.300","1.1.02.06.001",
-            "1.2.06","1.2.07"
-        ]
+        # 5) Filtrar ámbitos (guarda si no existe ambito_codigo)
+        codigos = ["1","1.1","1.1.01.01.200","1.1.01.02.104","1.1.01.02.200",
+                   "1.1.01.02.300","1.1.02.06.001","1.2.06","1.2.07"]
         if 'ambito_codigo' in df_i.columns:
-            ambito_series = df_i['ambito_codigo']
+            mask = df_i['ambito_codigo'].fillna('').astype(str).isin(codigos)
         else:
-            ambito_series = pd.Series([''] * len(df_i))
-        df_fil = df_i[ambito_series.fillna('').astype(str).isin(codigos)]
+            mask = pd.Series([False]*len(df_i))
+        df_fil = df_i[mask]
 
-        # — Convertir a MILLONES las columnas reales —
+        # 6) Convertir a millones
         if 'presupuesto_inicial' in df_fil.columns:
-            df_fil['presupuesto_inicial']   = df_fil['presupuesto_inicial']   / 1e6
+            df_fil['presupuesto_inicial']   /= 1e6
         if 'presupuesto_definitivo' in df_fil.columns:
-            df_fil['presupuesto_definitivo'] = df_fil['presupuesto_definitivo'] / 1e6
+            df_fil['presupuesto_definitivo'] /= 1e6
 
-        # — Renombrar para el reporte —
-        resumen = df_fil.rename(columns={
-            'presupuesto_inicial':   'Presupuesto Inicial',
-            'presupuesto_definitivo': 'Presupuesto Definitivo',
+        # 7) Renombrado dinámico SOLO de las columnas existentes
+        rename_map = {
             'periodo':                'Periodo',
             'codigo_entidad':         'Código Entidad',
             'nombre_entidad':         'Nombre Entidad',
             'ambito_codigo':          'Ámbito Código',
             'ambito_nombre':          'Ámbito Nombre',
-            'nombre_cuenta':          'Nombre Cuenta'
-        })[[
-            'Periodo','Código Entidad','Nombre Entidad',
-            'Ámbito Código','Ámbito Nombre','Nombre Cuenta',
-            'Presupuesto Inicial','Presupuesto Definitivo'
-        ]].reset_index(drop=True)
+            'nombre_cuenta':          'Nombre Cuenta',
+            'presupuesto_inicial':    'Presupuesto Inicial',
+            'presupuesto_definitivo': 'Presupuesto Definitivo'
+        }
+        # Filtrar el map solo a las keys presentes
+        actual_keys = [k for k in rename_map if k in df_fil.columns]
+        resumen = (
+            df_fil
+            .rename(columns={k: rename_map[k] for k in actual_keys})
+            [[rename_map[k] for k in actual_keys]]
+            .reset_index(drop=True)
+        )
 
-        # — Formatear a COP —
-        resumen['Presupuesto Inicial']   = resumen['Presupuesto Inicial'].map(format_cop)
-        resumen['Presupuesto Definitivo'] = resumen['Presupuesto Definitivo'].map(format_cop)
+        # 8) Formatear COP
+        for col in ('Presupuesto Inicial', 'Presupuesto Definitivo'):
+            if col in resumen.columns:
+                resumen[col] = resumen[col].map(format_cop)
 
-        # — Total definitivo (en millones) —
-        total_ing = df_fil['presupuesto_definitivo'].sum()
+        # 9) Total definitivo (ya en millones)
+        total = df_fil['presupuesto_definitivo'].sum() if 'presupuesto_definitivo' in df_fil.columns else 0.0
 
+        # 10) Mostrar
         st.subheader("2. Resumen de ingresos filtrados (millones de pesos)")
         st.markdown(resumen.to_html(index=False, escape=False), unsafe_allow_html=True)
 
         st.subheader("3. Total Presupuesto Definitivo (INGRESOS) (millones de pesos)")
-        st.metric("", format_cop(total_ing * 1e6))
+        st.metric("", format_cop(total * 1e6))
 
     # 3) Histórico Nominal vs Real con escala ajustada al mínimo real
     if st.button("Mostrar histórico"):
