@@ -552,17 +552,13 @@ elif pagina == "Comparativa de Ingresos":
         df_bar['COP per cápita'] = df_bar['COP per cápita'].apply(format_cop)
         df_bar['Absoluto']       = df_bar['Absoluto'].apply(format_cop)
 
-        # 7) Gráfico con etiquetas de eje X horizontales
+        # 7) Gráfico con etiquetas horizontales
         df_plot = pd.DataFrame({
-            'Tipo': df_bar['Tipo'],
+            'Tipo':  df_bar['Tipo'],
             'Value': [pc_sel, pc_cat, pc_all]
         })
         chart = alt.Chart(df_plot).mark_bar(cornerRadius=4).encode(
-            x=alt.X(
-                'Tipo:N',
-                title='',
-                axis=alt.Axis(labelAngle=0)        # etiquetas horizontales
-            ),
+            x=alt.X('Tipo:N', title='', axis=alt.Axis(labelAngle=0)),
             y=alt.Y('Value:Q', title='COP per cápita', axis=alt.Axis(format='$,.0f')),
             color=alt.condition(
                 alt.datum.Tipo == municipio,
@@ -581,13 +577,16 @@ elif pagina == "Comparativa de Ingresos":
 
         # ——— Tablas debajo del gráfico ———
 
-        # 8) Tabla de resumen con absolutos y per cápita
+        # 8) Tabla de resumen
         st.subheader('📋 Valores per cápita y absolutos')
         st.table(df_bar.set_index('Tipo'))
 
-        # 9) Tabla detallada por municipio de la categoría
+        # 9) Tabla detallada por municipio de la categoría (ordenada y resaltada)
         st.subheader(f'🏘️ Detalle por municipio (Categoría: {cat})')
         df_cat = df_sum[df_sum['categoria'] == cat].copy()
+        # Orden descendente por presupuesto
+        df_cat = df_cat.sort_values('presupuesto_def', ascending=False)
+        # Renombrar y formatear
         df_cat = df_cat.rename(columns={
             'nombre_entidad': 'Municipio',
             'presupuesto_def': 'Absoluto',
@@ -595,7 +594,14 @@ elif pagina == "Comparativa de Ingresos":
         })
         df_cat['Absoluto']       = df_cat['Absoluto'].apply(format_cop)
         df_cat['COP per cápita'] = df_cat['COP per cápita'].apply(format_cop)
-        st.dataframe(df_cat.set_index('Municipio'))
+        df_cat = df_cat.set_index('Municipio')
+
+        # Resaltar el municipio seleccionado en naranja
+        def highlight_selected(row):
+            return ['color: orange' if row.name == municipio else '' for _ in row]
+
+        st.dataframe(df_cat.style.apply(highlight_selected, axis=1))
+
 
 
 
