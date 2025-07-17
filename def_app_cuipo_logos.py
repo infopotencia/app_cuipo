@@ -158,6 +158,7 @@ st.sidebar.markdown(
 if pagina == "Programación de Ingresos":
     st.title("💰 Programación de Ingresos")
 
+    # — Selección geográfica —
     nivel = st.selectbox("Nivel geográfico:", ["Municipios", "Gobernaciones"])
     if nivel == "Municipios":
         raw_deps = df_mun["departamento"].dropna().unique()
@@ -171,65 +172,80 @@ if pagina == "Programación de Ingresos":
     ent = st.selectbox(f"Selecciona {label}:", df_ent["nombre_entidad"].dropna().astype(str).tolist())
     cod_ent = str(df_ent.loc[df_ent["nombre_entidad"] == ent, "codigo_entidad"].iloc[0])
 
+    # — Selección de período —
     per_lab = st.selectbox("Período puntual:", df_per["periodo_label"].tolist())
-    per = str(df_per.loc[df_per["periodo_label"] == per_lab, "periodo"].iloc[0])
+    per     = str(df_per.loc[df_per["periodo_label"] == per_lab, "periodo"].iloc[0])
 
+    # — Carga de ingresos —
     if st.button("Cargar ingresos"):
         with st.spinner("Cargando datos..."):
             st.session_state["df_ingresos"] = obtener_ingresos(cod_ent, per)
 
+    # — Resumen una vez cargados —
     if "df_ingresos" in st.session_state:
         df_i = st.session_state["df_ingresos"]
         st.subheader("1. Datos brutos de ingresos")
         st.dataframe(df_i, use_container_width=True)
+
+        # Botón de descarga
         buf_raw = io.BytesIO()
         with pd.ExcelWriter(buf_raw, engine="openpyxl") as writer:
             df_i.to_excel(writer, index=False, sheet_name="Datos Brutos")
         buf_raw.seek(0)
-        st.download_button("⬇️ Descargar datos brutos en Excel", buf_raw, "datos_brutos_ingresos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        codigos = ["1","1.1","1.1.01.01.200","1.1.01.02.104","1.1.01.02.200","1.1.01.02.300","1.1.02.06.001","1.2.06","1.2.07"]
-        df_fil = df_i[df_i.get("ambito_codigo", pd.Series([], dtype=str)).astype(str).isin(codigos)]
+        st.download_button(
+            "⬇️ Descargar datos brutos en Excel",
+            data=buf_raw,
+            file_name="datos_brutos_ingresos.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
-        #  Convertir a millones las columnas reales (bug de la API ya mapeado en fetch)
-    if 'presupuesto_inicial' in df_fil:
-        df_fil['presupuesto_inicial']   = df_fil['presupuesto_inicial']   / 1e6
-    if 'presupuesto_definitivo' in df_fil:
-        df_fil['presupuesto_definitivo'] = df_fil['presupuesto_definitivo'] / 1e6
+        # — Filtrar ámbitos —
+        codigos = [
+            "1","1.1","1.1.01.01.200","1.1.01.02.104",
+            "1.1.01.02.200","1.1.01.02.300","1.1.02.06.001",
+            "1.2.06","1.2.07"
+        ]
+        df_fil = df_i[
+            df_i['ambito_codigo']
+               .fillna('')
+               .astype(str)
+               .isin(codigos)
+        ]
 
-    #  Renombrar columnas para el resumen
-    resumen = df_fil.rename(columns={
-        'presupuesto_inicial':   'Presupuesto Inicial',
-        'presupuesto_definitivo': 'Presupuesto Definitivo',
-        'periodo':                'Periodo',
-        'codigo_entidad':         'Código Entidad',
-        'nombre_entidad':         'Nombre Entidad',
-        'ambito_codigo':          'Ámbito Código',
-        'ambito_nombre':          'Ámbito Nombre',
-        'nombre_cuenta':          'Nombre Cuenta'
-    })[[
-        'Periodo','Código Entidad','Nombre Entidad',
-        'Ámbito Código','Ámbito Nombre','Nombre Cuenta',
-        'Presupuesto Inicial','Presupuesto Definitivo'
-    ]].reset_index(drop=True)
+        # — Convertir a MILLONES las columnas reales —
+        if 'presupuesto_inicial' in df_fil.columns:
+            df_fil['presupuesto_inicial']   = df_fil['presupuesto_inicial']   / 1e6
+        if 'presupuesto_definitivo' in df_fil.columns:
+            df_fil['presupuesto_definitivo'] = df_fil['presupuesto_definitivo'] / 1e6
 
-    #  Formatear para despliegue
-    resumen['Presupuesto Inicial']   = resumen['Presupuesto Inicial'].map(format_cop)
-    resumen['Presupuesto Definitivo'] = resumen['Presupuesto Definitivo'].map(format_cop)
+        # — Renombrar para el reporte —
+        resumen = df_fil.rename(columns={
+            'presupuesto_inicial':   'Presupuesto Inicial',
+            'presupuesto_definitivo': 'Presupuesto Definitivo',
+            'periodo':                'Periodo',
+            'codigo_entidad':         'Código Entidad',
+            'nombre_entidad':         'Nombre Entidad',
+            'ambito_codigo':          'Ámbito Código',
+            'ambito_nombre':          'Ámbito Nombre',
+            'nombre_cuenta':          'Nombre Cuenta'
+        })[[
+            'Periodo','Código Entidad','Nombre Entidad',
+            'Ámbito Código','Ámbito Nombre','Nombre Cuenta',
+            'Presupuesto Inicial','Presupuesto Definitivo'
+        ]].reset_index(drop=True)
 
-    #  Calcular total definitivo (en millones)
-    total_ing = (
-        pd.to_numeric(
-            resumen['Presupuesto Definitivo'].str.replace('[$,]', '', regex=True),
-            errors='coerce'
-        ).sum()
-    )
+        # — Formatear a COP —
+        resumen['Presupuesto Inicial']   = resumen['Presupuesto Inicial'].map(format_cop)
+        resumen['Presupuesto Definitivo'] = resumen['Presupuesto Definitivo'].map(format_cop)
 
-    st.subheader("2. Resumen de ingresos filtrados (millones de pesos)")
-    st.markdown(resumen.to_html(index=False, escape=False), unsafe_allow_html=True)
+        # — Total definitivo —
+        total_ing = df_fil['presupuesto_definitivo'].sum()  # ya en millones
 
-    st.subheader("3. Total Presupuesto Definitivo (INGRESOS) (millones de pesos)")
-    st.metric("", format_cop(total_ing * 1e6))
+        st.subheader("2. Resumen de ingresos filtrados (millones de pesos)")
+        st.markdown(resumen.to_html(index=False, escape=False), unsafe_allow_html=True)
 
+        st.subheader("3. Total Presupuesto Definitivo (INGRESOS) (millones de pesos)")
+        st.metric("", format_cop(total_ing * 1e6))
     # 3) Histórico Nominal vs Real con escala ajustada al mínimo real
     if st.button("Mostrar histórico"):
         with st.spinner("Obteniendo histórico Q4..."):
