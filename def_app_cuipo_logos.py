@@ -481,7 +481,7 @@ elif pagina == "Ejecución de Gastos":
 elif pagina == "Comparativa de Ingresos":
     st.title("📊 Comparativa Per Cápita (Media Aritmética)")
 
-    # --- Parámetros de consulta ---
+    # Parámetros de consulta
     st.sidebar.header("Parámetros de consulta")
     departamentos = sorted(df_mun['departamento'].dropna().astype(str).unique())
     departamento = st.sidebar.selectbox("Departamento", departamentos)
@@ -506,15 +506,15 @@ elif pagina == "Comparativa de Ingresos":
         ].iloc[0]
     )
 
-    # --- Ejecutar comparativa ---
+    # Ejecutar comparativa
     if st.sidebar.button("🚀 Ejecutar comparativa"):
-        # 1) Traer y chequear datos
+        # 1) Traer datos y chequear
         df_acct = fetch_account_data(periodo, ambito_code)
         if df_acct.empty:
             st.warning("No hay datos para esa cuenta y período.")
             st.stop()
 
-        # 2) Agregar por municipio
+        # 2) Sumar presupuesto por municipio
         df_acct['presupuesto_def'] = df_acct['presupuesto_definitivo']
         df_sum = (
             df_acct
@@ -523,37 +523,46 @@ elif pagina == "Comparativa de Ingresos":
         )
 
         # 3) Merge con población y categoría
-        df_sum = (
-            df_sum
-            .merge(df_mun[['nombre_entidad','poblacion','categoria']],
-                   on='nombre_entidad', how='left')
-            .dropna(subset=['poblacion'])
-        )
+        df_sum = df_sum.merge(
+            df_mun[['nombre_entidad','poblacion','categoria']],
+            on='nombre_entidad', how='left'
+        ).dropna(subset=['poblacion'])
 
         # 4) Calcular per cápita
         df_sum['per_capita'] = df_sum['presupuesto_def'] / df_sum['poblacion']
 
-        # 5) Extraer valores para gráfico y tabla
-        sel = df_sum[df_sum['nombre_entidad'] == municipio]
-        pc_sel = sel['per_capita'].iloc[0] if not sel.empty else 0.0
-        cat    = sel['categoria'].iloc[0]   if not sel.empty else None
-        pc_cat = df_sum[df_sum['categoria'] == cat]['per_capita'].mean() if cat else 0.0
-        pc_all = df_sum['per_capita'].mean()
+        # 5) Extraer seleccionados
+        sel     = df_sum[df_sum['nombre_entidad'] == municipio]
+        pc_sel  = sel['per_capita'].iloc[0]     if not sel.empty else 0.0
+        abs_sel = sel['presupuesto_def'].iloc[0] if not sel.empty else 0.0
+        cat     = sel['categoria'].iloc[0]      if not sel.empty else None
 
-        # 6) Preparar DataFrame de resultados
+        pc_cat  = df_sum[df_sum['categoria'] == cat]['per_capita'].mean()    if cat else 0.0
+        abs_cat = df_sum[df_sum['categoria'] == cat]['presupuesto_def'].mean() if cat else 0.0
+
+        pc_all  = df_sum['per_capita'].mean()
+        abs_all = df_sum['presupuesto_def'].mean()
+
+        # 6) Tabla de resumen
         df_bar = pd.DataFrame({
             'Tipo': [municipio, f'Promedio Cat. ({cat})', 'Promedio País'],
-            'COP per cápita': [pc_sel, pc_cat, pc_all]
+            'COP per cápita': [pc_sel, pc_cat, pc_all],
+            'Absoluto':       [abs_sel, abs_cat, abs_all]
         })
         df_bar['COP per cápita'] = df_bar['COP per cápita'].apply(format_cop)
+        df_bar['Absoluto']       = df_bar['Absoluto'].apply(format_cop)
 
-        # 7) Graficar con Altair
+        # 7) Gráfico con etiquetas de eje X horizontales
         df_plot = pd.DataFrame({
             'Tipo': df_bar['Tipo'],
             'Value': [pc_sel, pc_cat, pc_all]
         })
         chart = alt.Chart(df_plot).mark_bar(cornerRadius=4).encode(
-            x=alt.X('Tipo:N', title=''),
+            x=alt.X(
+                'Tipo:N',
+                title='',
+                axis=alt.Axis(labelAngle=0)        # etiquetas horizontales
+            ),
             y=alt.Y('Value:Q', title='COP per cápita', axis=alt.Axis(format='$,.0f')),
             color=alt.condition(
                 alt.datum.Tipo == municipio,
@@ -570,9 +579,23 @@ elif pagina == "Comparativa de Ingresos":
         )
         st.altair_chart(chart, use_container_width=True)
 
-        # 8) Mostrar tabla resultante
-        st.subheader('📋 Valores per cápita: media aritmética')
+        # ——— Tablas debajo del gráfico ———
+
+        # 8) Tabla de resumen con absolutos y per cápita
+        st.subheader('📋 Valores per cápita y absolutos')
         st.table(df_bar.set_index('Tipo'))
+
+        # 9) Tabla detallada por municipio de la categoría
+        st.subheader(f'🏘️ Detalle por municipio (Categoría: {cat})')
+        df_cat = df_sum[df_sum['categoria'] == cat].copy()
+        df_cat = df_cat.rename(columns={
+            'nombre_entidad': 'Municipio',
+            'presupuesto_def': 'Absoluto',
+            'per_capita':      'COP per cápita'
+        })
+        df_cat['Absoluto']       = df_cat['Absoluto'].apply(format_cop)
+        df_cat['COP per cápita'] = df_cat['COP per cápita'].apply(format_cop)
+        st.dataframe(df_cat.set_index('Municipio'))
 
 
 
