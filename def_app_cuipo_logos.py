@@ -158,58 +158,37 @@ st.sidebar.markdown(
 if pagina == "Programación de Ingresos":
     st.title("💰 Programación de Ingresos")
 
-    # Selección de nivel geográfico
     nivel = st.selectbox("Nivel geográfico:", ["Municipios", "Gobernaciones"])
     if nivel == "Municipios":
-      deps = sorted(
-            df_mun["departamento"]
-                .dropna()
-                .astype(str)
-                .unique()
-        )
+        raw_deps = df_mun["departamento"].dropna().unique()
+        deps = sorted(str(d) for d in raw_deps)
         dep = st.selectbox("Departamento:", deps)
-        df_ent = df_mun[df_mun["departamento"] == dep]
+        df_ent = df_mun[df_mun["departamento"].astype(str) == dep]
         label = "Municipio"
     else:
         df_ent = df_dep
         label = "Gobernación"
-    ent = st.selectbox(f"Selecciona {label}:", df_ent["nombre_entidad"].tolist())
+    ent = st.selectbox(f"Selecciona {label}:", df_ent["nombre_entidad"].dropna().astype(str).tolist())
     cod_ent = str(df_ent.loc[df_ent["nombre_entidad"] == ent, "codigo_entidad"].iloc[0])
 
-    # Selección de período puntual
     per_lab = st.selectbox("Período puntual:", df_per["periodo_label"].tolist())
-    per     = str(df_per.loc[df_per["periodo_label"] == per_lab, "periodo"].iloc[0])
+    per = str(df_per.loc[df_per["periodo_label"] == per_lab, "periodo"].iloc[0])
 
-    # 1) Cargar ingresos
     if st.button("Cargar ingresos"):
         with st.spinner("Cargando datos..."):
             st.session_state["df_ingresos"] = obtener_ingresos(cod_ent, per)
 
-    # 2) Tabla resumen y descarga de brutos
     if "df_ingresos" in st.session_state:
         df_i = st.session_state["df_ingresos"]
         st.subheader("1. Datos brutos de ingresos")
         st.dataframe(df_i, use_container_width=True)
-
-        # Descargar datos brutos
         buf_raw = io.BytesIO()
         with pd.ExcelWriter(buf_raw, engine="openpyxl") as writer:
             df_i.to_excel(writer, index=False, sheet_name="Datos Brutos")
         buf_raw.seek(0)
-        st.download_button(
-            "⬇️ Descargar datos brutos en Excel",
-            data=buf_raw,
-            file_name="datos_brutos_ingresos.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-        # Filtrar ámbitos y preparar resumen
-        codigos = [
-            "1","1.1","1.1.01.01.200","1.1.01.02.104",
-            "1.1.01.02.200","1.1.01.02.300","1.1.02.06.001",
-            "1.2.06","1.2.07"
-        ]
-        df_fil = df_i[df_i.get("ambito_codigo","").isin(codigos)]
+        st.download_button("⬇️ Descargar datos brutos en Excel", buf_raw, "datos_brutos_ingresos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        codigos = ["1","1.1","1.1.01.01.200","1.1.01.02.104","1.1.01.02.200","1.1.01.02.300","1.1.02.06.001","1.2.06","1.2.07"]
+        df_fil = df_i[df_i.get("ambito_codigo", pd.Series([], dtype=str)).astype(str).isin(codigos)]
         drop_cols = [c for c in ['cuenta','presupuesto_inicial','presupuesto_definitivo'] if c in df_fil]
         resumen = df_fil.drop(columns=drop_cols).rename(columns={
             'cod_detalle_sectorial': 'Presupuesto Inicial',
@@ -335,21 +314,16 @@ elif pagina == "Ejecución de Gastos":
 
     nivel = st.selectbox("Selecciona el nivel", ["Municipios", "Gobernaciones"])
     if nivel == "Municipios":
-        departamentos = sorted(
-            df_mun["departamento"]
-                .dropna()             
-                .astype(str)          
-                .unique()
-        )
-        dep_sel = st.selectbox("Selecciona el departamento", departamentos)
-        df_entidades = df_mun[df_mun["departamento"] == dep_sel]
+        raw_deps = df_mun["departamento"].dropna().unique()
+        deps = sorted(str(d) for d in raw_deps)
+        dep_sel = st.selectbox("Selecciona el departamento", deps)
+        df_entidades = df_mun[df_mun["departamento"].astype(str) == dep_sel]
         label_ent = "Selecciona el municipio"
     else:
         df_entidades = df_dep
         label_ent = "Selecciona la gobernación"
-    ent_sel = st.selectbox(label_ent, df_entidades["nombre_entidad"].tolist())
+    ent_sel = st.selectbox(label_ent, df_entidades["nombre_entidad"].dropna().astype(str).tolist())
     codigo_ent = str(df_entidades.loc[df_entidades["nombre_entidad"] == ent_sel, "codigo_entidad"].iloc[0])
-
     periodo_label_g = st.selectbox("Selecciona el periodo", df_per["periodo_label"].tolist())
     periodo = str(df_per.loc[df_per["periodo_label"] == periodo_label_g, "periodo"].iloc[0])
 
@@ -490,127 +464,53 @@ elif pagina == "Ejecución de Gastos":
 
 elif pagina == "Comparativa de Ingresos":
     st.title("📊 Comparativa Per Cápita (Media Aritmética)")
-
-    # Parámetros de consulta
     st.sidebar.header("Parámetros de consulta")
-    departamentos = sorted(df_mun['departamento'].dropna().astype(str).unique())
+    raw_deps = df_mun['departamento'].dropna().unique()
+    departamentos = sorted(str(d) for d in raw_deps)
     departamento = st.sidebar.selectbox("Departamento", departamentos)
-
-    df_dep_comp = df_mun[df_mun['departamento'] == departamento]
-    municipio = st.sidebar.selectbox(
-        "Municipio",
-        df_dep_comp['nombre_entidad'].dropna().astype(str).unique()
-    )
-
+    df_dep_comp = df_mun[df_mun['departamento'].astype(str) == departamento]
+    municipio = st.sidebar.selectbox("Municipio", df_dep_comp['nombre_entidad'].dropna().astype(str).unique())
     periodo_label = st.sidebar.selectbox("Período (label)", df_per['periodo_label'].tolist())
     periodo = str(df_per.loc[df_per['periodo_label'] == periodo_label, 'periodo'].iloc[0])
-
-    cuenta = st.sidebar.selectbox(
-        "Cuenta",
-        df_cuentas_control['Nombre de la Cuenta'].dropna().astype(str).unique()
-    )
-    ambito_code = str(
-        df_cuentas_control.loc[
-            df_cuentas_control['Nombre de la Cuenta'] == cuenta,
-            'Código Completo'
-        ].iloc[0]
-    )
-
-    # Ejecutar comparativa
+    cuenta = st.sidebar.selectbox("Cuenta", df_cuentas_control['Nombre de la Cuenta'].dropna().astype(str).unique())
+    ambito_code = str(df_cuentas_control.loc[df_cuentas_control['Nombre de la Cuenta'] == cuenta, 'Código Completo'].iloc[0])
     if st.sidebar.button("🚀 Ejecutar comparativa"):
-        # 1) Traer datos y chequear
         df_acct = fetch_account_data(periodo, ambito_code)
         if df_acct.empty:
             st.warning("No hay datos para esa cuenta y período.")
             st.stop()
-
-        # 2) Sumar presupuesto por municipio
         df_acct['presupuesto_def'] = df_acct['presupuesto_definitivo']
-        df_sum = (
-            df_acct
-            .groupby('nombre_entidad', as_index=False)['presupuesto_def']
-            .sum()
-        )
-
-        # 3) Merge con población y categoría
-        df_sum = df_sum.merge(
-            df_mun[['nombre_entidad','poblacion','categoria']],
-            on='nombre_entidad', how='left'
-        ).dropna(subset=['poblacion'])
-
-        # 4) Calcular per cápita
+        df_sum = df_acct.groupby('nombre_entidad', as_index=False)['presupuesto_def'].sum()
+        df_sum = df_sum.merge(df_mun[['nombre_entidad','poblacion','categoria']], on='nombre_entidad', how='left').dropna(subset=['poblacion'])
         df_sum['per_capita'] = df_sum['presupuesto_def'] / df_sum['poblacion']
-
-        # 5) Extraer seleccionados
-        sel     = df_sum[df_sum['nombre_entidad'] == municipio]
-        pc_sel  = sel['per_capita'].iloc[0]     if not sel.empty else 0.0
+        sel = df_sum[df_sum['nombre_entidad'] == municipio]
+        pc_sel = sel['per_capita'].iloc[0] if not sel.empty else 0.0
         abs_sel = sel['presupuesto_def'].iloc[0] if not sel.empty else 0.0
-        cat     = sel['categoria'].iloc[0]      if not sel.empty else None
-
-        pc_cat  = df_sum[df_sum['categoria'] == cat]['per_capita'].mean()    if cat else 0.0
+        cat = sel['categoria'].iloc[0] if not sel.empty else None
+        pc_cat = df_sum[df_sum['categoria'] == cat]['per_capita'].mean() if cat else 0.0
         abs_cat = df_sum[df_sum['categoria'] == cat]['presupuesto_def'].mean() if cat else 0.0
-
-        pc_all  = df_sum['per_capita'].mean()
+        pc_all = df_sum['per_capita'].mean()
         abs_all = df_sum['presupuesto_def'].mean()
-
-        # 6) Tabla de resumen
-        df_bar = pd.DataFrame({
-            'Tipo': [municipio, f'Promedio Cat. ({cat})', 'Promedio País'],
-            'COP per cápita': [pc_sel, pc_cat, pc_all],
-            'Absoluto':       [abs_sel, abs_cat, abs_all]
-        })
-        df_bar['COP per cápita'] = df_bar['COP per cápita'].apply(format_cop)
-        df_bar['Absoluto']       = df_bar['Absoluto'].apply(format_cop)
-
-        # 7) Gráfico con etiquetas horizontales
-        df_plot = pd.DataFrame({
-            'Tipo':  df_bar['Tipo'],
-            'Value': [pc_sel, pc_cat, pc_all]
-        })
-        chart = alt.Chart(df_plot).mark_bar(cornerRadius=4).encode(
-            x=alt.X('Tipo:N', title='', axis=alt.Axis(labelAngle=0)),
-            y=alt.Y('Value:Q', title='COP per cápita', axis=alt.Axis(format='$,.0f')),
-            color=alt.condition(
-                alt.datum.Tipo == municipio,
-                alt.value('orange'),
-                alt.value('steelblue')
-            ),
-            tooltip=[
-                alt.Tooltip('Tipo:N', title='Tipo'),
-                alt.Tooltip('Value:Q', title='COP per cápita', format='$,.0f')
-            ]
-        ).properties(
-            title=f"Comparativa Per Cápita: {municipio}",
-            width=600, height=400
-        )
-        st.altair_chart(chart, use_container_width=True)
-
-        # ——— Tablas debajo del gráfico ———
-
-        # 8) Tabla de resumen
+        df_bar = pd.DataFrame({'Tipo':[municipio,f'Promedio Cat. ({cat})','Promedio País'], 'COP per cápita':[pc_sel,pc_cat,pc_all],'Absoluto':[abs_sel,abs_cat,abs_all]})
+        df_bar['COP per cápita']=df_bar['COP per cápita'].apply(format_cop)
+        df_bar['Absoluto']=df_bar['Absoluto'].apply(format_cop)
+        df_plot=pd.DataFrame({'Tipo':df_bar['Tipo'],'Value':[pc_sel,pc_cat,pc_all]})
+        chart=alt.Chart(df_plot).mark_bar(cornerRadius=4).encode(
+            x=alt.X('Tipo:N',title='',axis=alt.Axis(labelAngle=0)),
+            y=alt.Y('Value:Q',title='COP per cápita',axis=alt.Axis(format='$,.0f')),
+            color=alt.condition(alt.datum.Tipo==municipio,alt.value('orange'),alt.value('steelblue')),
+            tooltip=[alt.Tooltip('Tipo:N',title='Tipo'),alt.Tooltip('Value:Q',title='COP per cápita',format='$,.0f')]
+        ).properties(title=f"Comparativa Per Cápita: {municipio}",width=600,height=400)
+        st.altair_chart(chart,use_container_width=True)
         st.subheader('📋 Valores per cápita y absolutos')
         st.table(df_bar.set_index('Tipo'))
-
-        # 9) Tabla detallada por municipio de la categoría (ordenada y resaltada)
         st.subheader(f'🏘️ Detalle por municipio (Categoría: {cat})')
-        df_cat = df_sum[df_sum['categoria'] == cat].copy()
-        # Orden descendente por presupuesto
-        df_cat = df_cat.sort_values('presupuesto_def', ascending=False)
-        # Renombrar y formatear
-        df_cat = df_cat.rename(columns={
-            'nombre_entidad': 'Municipio',
-            'presupuesto_def': 'Absoluto',
-            'per_capita':      'COP per cápita'
-        })
-        df_cat['Absoluto']       = df_cat['Absoluto'].apply(format_cop)
-        df_cat['COP per cápita'] = df_cat['COP per cápita'].apply(format_cop)
-        df_cat = df_cat.set_index('Municipio')
-
-        # Resaltar el municipio seleccionado en naranja
-        def highlight_selected(row):
-            return ['color: orange' if row.name == municipio else '' for _ in row]
-
-        st.dataframe(df_cat.style.apply(highlight_selected, axis=1))
+        df_cat=df_sum[df_sum['categoria']==cat].copy().rename(columns={'nombre_entidad':'Municipio','presupuesto_def':'Absoluto','per_capita':'COP per cápita'})
+        df_cat=df_cat.sort_values('Absoluto',ascending=False)
+        df_cat['Absoluto']=df_cat['Absoluto'].apply(format_cop)
+        df_cat['COP per cápita']=df_cat['COP per cápita'].apply(format_cop)
+        styled=df_cat.set_index('Municipio').style.apply(lambda row:['color: orange' if row.name==municipio else '' for _ in row],axis=1)
+        st.dataframe(styled)
 
 
 
